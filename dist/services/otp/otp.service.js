@@ -33,19 +33,22 @@ let OtpService = OtpService_1 = class OtpService {
         const rawOtp = this.generateOtpCode();
         const otpCodeHash = await this.hashOtp(rawOtp);
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        let emailResult = { success: true };
         if (channel === client_1.OtpChannel.EMAIL) {
-            await this.sendEmailOtp(destination, rawOtp);
+            emailResult = await this.sendEmailOtp(destination, rawOtp);
         }
         else {
             await this.sendSmsOtp(destination, rawOtp);
         }
         const isDev = this.configService.get('NODE_ENV') !== 'production';
+        const shouldProvidePreview = isDev || !emailResult.success || this.configService.get('ALLOW_OTP_PREVIEW') === 'true';
         return {
             channel,
             destination,
             expiresAt,
             otpCodeHash,
-            previewOtpForDev: isDev ? rawOtp : undefined,
+            previewOtpForDev: shouldProvidePreview ? rawOtp : undefined,
+            deliveryNotice: emailResult.error,
         };
     }
     async sendEmailOtp(email, otp) {
@@ -57,7 +60,7 @@ let OtpService = OtpService_1 = class OtpService {
                 const response = await fetch('https://api.resend.com/emails', {
                     method: 'POST',
                     headers: {
-                        Authorization: `Bearer ${resendApiKey}`,
+                        Authorization: `Bearer ${resendApiKey.trim()}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
@@ -78,18 +81,23 @@ let OtpService = OtpService_1 = class OtpService {
                 });
                 const data = await response.json().catch(() => null);
                 if (!response.ok) {
-                    this.logger.error(`[RESEND ERROR] Failed to send email: ${JSON.stringify(data)}`);
+                    const errMsg = data?.message || JSON.stringify(data);
+                    this.logger.error(`[RESEND ERROR] Failed to send email: ${errMsg}`);
+                    return { success: false, error: errMsg };
                 }
                 else {
                     this.logger.log(`[RESEND SUCCESS] Email dispatched successfully: ID=${data?.id}`);
+                    return { success: true };
                 }
             }
             catch (err) {
                 this.logger.error(`[RESEND EXCEPTION] ${err.message}`);
+                return { success: false, error: err.message };
             }
         }
         else {
             this.logger.warn('[RESEND SKIPPED] No RESEND_API_KEY configured in environment variables.');
+            return { success: false, error: 'No RESEND_API_KEY configured' };
         }
     }
     async sendSmsOtp(mobile, otp) {

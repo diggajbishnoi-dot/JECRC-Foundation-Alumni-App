@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Person, people, meAlumni, jobs as seedJobs, Job, threads as seedThreads, Thread, notifs as seedNotifs, Notif, groups as seedGroups, seedChats, repliesPool, SeedMsg } from "../data/mock";
+import { Person, people, meAlumni, Job, Thread, Notif, groups as seedGroups } from "../data/mock";
 import { api } from "../services/api";
 
 export type Role = "student" | "alumni";
@@ -106,7 +106,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [received, setReceived] = useState<string[]>([]);
   const [sent, setSent] = useState<string[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [typing, setTyping] = useState<Record<string, boolean>>({});
+  const [typing] = useState<Record<string, boolean>>({});
   const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [allThreads, setAllThreads] = useState<Thread[]>([]);
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
@@ -399,6 +399,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setMe({
       id: "me",
       name: d.name || "New Member",
+      email: d.email,
       role: d.role,
       branch: d.branch || "CSE",
       batch: d.detail || (d.role === "alumni" ? "2020" : "2027"),

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bell, Users, Briefcase, MessagesSquare, UsersRound, GraduationCap, Plus,
-  Clock, ChevronRight, TrendingUp, CalendarDays, Handshake, Inbox, MapPin,
+  Clock, ChevronRight, TrendingUp, Handshake, Inbox, MapPin,
 } from "lucide-react";
 import { useStore, personById, allGroups } from "../state/store";
 import { InitialsAvatar, ListSkeleton, Refreshable, SectionHeader, Tag } from "../components/ui";

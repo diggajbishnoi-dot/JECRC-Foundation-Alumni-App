@@ -247,11 +247,15 @@ export default function AuthFlow() {
         }
         toast(`Verification code generated for ${reg.email}`);
       } else {
-        setErrors({ email: res.error || "Registration failed. Email may already be in use." });
+        const errorMsg = res.error || "User already exists with this email.";
+        setErrors({ email: errorMsg });
+        toast(errorMsg);
       }
     } catch (err: any) {
       setLoading(false);
-      setErrors({ email: err.message || "Failed to connect to backend server" });
+      const errorMsg = err.message || "Registration failed. User already exists with this email.";
+      setErrors({ email: errorMsg });
+      toast(errorMsg);
     }
   };
 
@@ -311,6 +315,7 @@ export default function AuthFlow() {
         setMe({
           id: u.id,
           name: u.name,
+          email: u.email,
           role: uRole,
           branch: u.alumniDetails?.branch || u.studentDetails?.branch || "CSE",
           batch: u.alumniDetails?.batch || "2020",
@@ -325,17 +330,21 @@ export default function AuthFlow() {
               : "JECRC Student"),
         });
         setPhase("app");
-        toast(`Welcome back, ${u.name.split(" ")[0] || "Alumnus"}!`);
+        toast(`Welcome back, ${u.name.split(" ")[0] || "Member"}!`);
+        return;
+      } else {
+        const errMsg = res.error || "No account found with this email. Don't have an account? Sign up below.";
+        setErrors({ l_email: errMsg });
+        toast(errMsg);
         return;
       }
-    } catch {
-      // Fallback below
+    } catch (err: any) {
+      setLoading(false);
+      const errMsg = err?.message || "Invalid credentials or account does not exist. Please Sign up.";
+      setErrors({ l_email: errMsg });
+      toast(errMsg);
+      return;
     }
-
-    setLoading(false);
-    setRole("alumni");
-    setPhase("app");
-    toast("Welcome back!");
   };
 
   /* ---------- Claim Profile Handlers ---------- */
@@ -851,6 +860,21 @@ export default function AuthFlow() {
                   placeholder="Enter Email"
                   error={errors.email}
                 />
+                {errors.email && (errors.email.toLowerCase().includes("already") || errors.email.toLowerCase().includes("exist")) && (
+                  <div className="rounded-xl border border-rose/25 bg-rose-50/70 p-3 text-[12.5px] text-sub flex items-center justify-between">
+                    <span className="text-rose font-medium">Account already registered</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginForm((f) => ({ ...f, email: reg.email }));
+                        setScreen("login");
+                      }}
+                      className="rounded-lg bg-navy px-2.5 py-1 text-[11.5px] font-bold text-white shadow-sm hover:bg-navy-600 cursor-pointer"
+                    >
+                      Sign In &rarr;
+                    </button>
+                  </div>
+                )}
                 <Field
                   label="Password"
                   password

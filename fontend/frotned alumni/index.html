@@ -28,8 +28,14 @@
       rel="stylesheet"
     />
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="bg-page">
+    <div id="root">
+      <div style="height: 100dvh; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0F2A5E; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <img src="/icon-192.png" alt="JECRC" style="width: 76px; height: 76px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);" />
+        <div style="margin-top: 16px; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">Alumni<span style="color: #F2A93B;">Meet</span></div>
+        <div style="margin-top: 4px; font-size: 12px; opacity: 0.7; letter-spacing: 0.5px;">JECRC Foundation</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {

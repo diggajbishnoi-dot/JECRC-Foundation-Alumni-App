@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ChevronLeft, Loader2 } from "lucide-react";
 import { cn } from "../utils/cn";
@@ -235,13 +235,20 @@ export function Sheet({
 export function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={on}
       onClick={() => onChange(!on)}
-      className={cn("relative h-7 w-12 rounded-full transition-colors duration-200", on ? "bg-navy" : "bg-line")}
+      className={cn(
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+        on ? "bg-navy" : "bg-neutral-200"
+      )}
     >
-      <motion.span
-        animate={{ x: on ? 22 : 2 }}
-        transition={{ type: "spring", stiffness: 500, damping: 32 }}
-        className="absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow"
+      <span
+        className={cn(
+          "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out",
+          on ? "translate-x-5" : "translate-x-0"
+        )}
       />
     </button>
   );

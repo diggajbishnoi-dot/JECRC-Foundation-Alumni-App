@@ -380,6 +380,13 @@ class InMemoryDb {
             async create(args) {
                 const list = db[collectionName];
                 const data = { ...args.data };
+                if (collectionName === 'users' && data.email) {
+                    const normEmail = String(data.email).trim().toLowerCase();
+                    const exists = db.users.find((u) => u.email && String(u.email).trim().toLowerCase() === normEmail);
+                    if (exists) {
+                        throw new Error(`Unique constraint failed on the constraint: 'users_email_key'. User with email '${data.email}' already exists.`);
+                    }
+                }
                 if (!data.id) {
                     data.id = `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 }
@@ -469,6 +476,11 @@ class InMemoryDb {
                 continue;
             }
             const itemVal = item[key];
+            if (key === 'email' && typeof val === 'string' && typeof itemVal === 'string') {
+                if (itemVal.trim().toLowerCase() !== val.trim().toLowerCase())
+                    return false;
+                continue;
+            }
             if (typeof val === 'object' && val !== null) {
                 if ('equals' in val && itemVal !== val.equals)
                     return false;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   UserPlus, Briefcase, GraduationCap, CalendarDays, UsersRound, MessageCircle,
-  ChevronRight, LogOut, Trash2, CheckCheck, BellOff, EyeOff, Check, X, Handshake,
+  LogOut, Trash2, CheckCheck, BellOff, EyeOff, Check, X, Handshake,
 } from "lucide-react";
 import { useStore, personById } from "../state/store";
 import { Btn, EmptyState, InitialsAvatar, ScreenHeader, Sheet, Switch, Tag } from "../components/ui";
@@ -116,7 +116,6 @@ export function SettingsScreen() {
               {role === "alumni" ? "Alumni Account" : "Student Account"}
             </span>
           </div>
-          <ChevronRight size={18} className="text-sub/40" />
         </motion.div>
 
         {/* notifications */}

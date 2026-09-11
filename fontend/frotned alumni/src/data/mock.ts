@@ -1,6 +1,8 @@
 export interface Person {
   id: string;
   name: string;
+  email?: string;
+  mobile?: string;
   role: "student" | "alumni";
   headline: string;
   branch: string;

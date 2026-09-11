@@ -29,16 +29,43 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
         this.inMemoryDb = new in_memory_db_1.InMemoryDb();
     }
     async onModuleInit() {
+        let connected = false;
         try {
             await this.$connect();
-            this.isMock = false;
-            this.logger.log('Successfully connected to PostgreSQL via Prisma');
+            connected = true;
         }
-        catch (error) {
+        catch (connErr) {
+            this.logger.warn(`Could not connect to PostgreSQL server: ${connErr.message}`);
             this.isMock = true;
-            this.logger.warn(`Could not connect to PostgreSQL: ${error.message}`);
             this.logger.log('Running with high-fidelity In-Memory Database fallback populated with seed data.');
             this.setupInMemoryFallback();
+            return;
+        }
+        try {
+            await this.$queryRawUnsafe('SELECT 1 FROM "users" LIMIT 1;');
+            this.isMock = false;
+            this.logger.log('Successfully connected to PostgreSQL via Prisma (schema tables verified)');
+        }
+        catch (tableErr) {
+            this.logger.warn(`PostgreSQL connected, but tables are missing: ${tableErr.message}`);
+            let synced = false;
+            try {
+                const { execSync } = require('child_process');
+                this.logger.log('Attempting automatic schema sync: npx prisma db push --accept-data-loss ...');
+                execSync('npx prisma db push --accept-data-loss --skip-generate', { stdio: 'pipe' });
+                await this.$queryRawUnsafe('SELECT 1 FROM "users" LIMIT 1;');
+                this.isMock = false;
+                synced = true;
+                this.logger.log('PostgreSQL schema tables created and verified successfully!');
+            }
+            catch (syncErr) {
+                this.logger.warn(`Automatic schema push could not complete: ${syncErr.message}`);
+            }
+            if (!synced) {
+                this.isMock = true;
+                this.logger.log('Falling back to high-fidelity In-Memory Database fallback populated with seed data.');
+                this.setupInMemoryFallback();
+            }
         }
     }
     setupInMemoryFallback() {

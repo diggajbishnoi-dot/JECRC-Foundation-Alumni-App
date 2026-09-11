@@ -9,6 +9,7 @@ export interface SendOtpResult {
   expiresAt: Date;
   otpCodeHash: string;
   previewOtpForDev?: string;
+  deliveryNotice?: string;
 }
 
 @Injectable()
@@ -46,24 +47,28 @@ export class OtpService {
     const otpCodeHash = await this.hashOtp(rawOtp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
+    let emailResult: { success: boolean; error?: string } = { success: true };
     if (channel === OtpChannel.EMAIL) {
-      await this.sendEmailOtp(destination, rawOtp);
+      emailResult = await this.sendEmailOtp(destination, rawOtp);
     } else {
       await this.sendSmsOtp(destination, rawOtp);
     }
 
     const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
+    // Provide preview OTP in dev, or if Resend failed/has domain restriction, or if explicitly allowed
+    const shouldProvidePreview = isDev || !emailResult.success || this.configService.get<string>('ALLOW_OTP_PREVIEW') === 'true';
 
     return {
       channel,
       destination,
       expiresAt,
       otpCodeHash,
-      previewOtpForDev: isDev ? rawOtp : undefined,
+      previewOtpForDev: shouldProvidePreview ? rawOtp : undefined,
+      deliveryNotice: emailResult.error,
     };
   }
 
-  private async sendEmailOtp(email: string, otp: string): Promise<void> {
+  private async sendEmailOtp(email: string, otp: string): Promise<{ success: boolean; error?: string }> {
     const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
     const emailFrom = this.configService.get<string>('EMAIL_FROM', 'onboarding@resend.dev');
 
@@ -74,7 +79,7 @@ export class OtpService {
         const response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${resendApiKey}`,
+            Authorization: `Bearer ${resendApiKey.trim()}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -96,21 +101,25 @@ export class OtpService {
 
         const data = await response.json().catch(() => null);
         if (!response.ok) {
-          this.logger.error(`[RESEND ERROR] Failed to send email: ${JSON.stringify(data)}`);
+          const errMsg = data?.message || JSON.stringify(data);
+          this.logger.error(`[RESEND ERROR] Failed to send email: ${errMsg}`);
+          return { success: false, error: errMsg };
         } else {
           this.logger.log(`[RESEND SUCCESS] Email dispatched successfully: ID=${data?.id}`);
+          return { success: true };
         }
       } catch (err: any) {
         this.logger.error(`[RESEND EXCEPTION] ${err.message}`);
+        return { success: false, error: err.message };
       }
     } else {
       this.logger.warn('[RESEND SKIPPED] No RESEND_API_KEY configured in environment variables.');
+      return { success: false, error: 'No RESEND_API_KEY configured' };
     }
   }
 
   private async sendSmsOtp(mobile: string, otp: string): Promise<void> {
     const provider = this.configService.get<string>('SMS_PROVIDER', 'TWILIO');
     this.logger.log(`[SMS DISPATCH] Provider=${provider} Sending OTP [${otp}] to ${mobile}`);
-    // In production with Twilio/MSG91 keys, real SMS is dispatched here.
   }
 }

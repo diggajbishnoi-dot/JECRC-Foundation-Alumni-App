@@ -16,9 +16,6 @@ export declare class AuthService {
     private runInTx;
     private runTxArray;
     register(dto: RegisterDto): Promise<{
-        message: string;
-        previewOtpForDev: string;
-    } | {
         userId: any;
         channel: "SMS" | "EMAIL";
         destination: string;

@@ -59,27 +59,26 @@ export class AuthService {
       throw new BadRequestException('At least one of email or mobile number must be provided');
     }
 
-    const channel = dto.mobile ? OtpChannel.SMS : OtpChannel.EMAIL;
-    const destination = dto.mobile || dto.email!;
+    const cleanEmail = dto.email ? dto.email.trim().toLowerCase() : undefined;
+    const cleanMobile = dto.mobile ? dto.mobile.trim() : undefined;
 
-    // Check existing users
+    const channel = cleanMobile ? OtpChannel.SMS : OtpChannel.EMAIL;
+    const destination = cleanMobile || cleanEmail!;
+
+    // Check existing users (strictly 1 account per email/mobile)
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [
-          ...(dto.email ? [{ email: dto.email }] : []),
-          ...(dto.mobile ? [{ mobile: dto.mobile }] : []),
+          ...(cleanEmail ? [{ email: cleanEmail }, { email: dto.email.trim() }] : []),
+          ...(cleanMobile ? [{ mobile: cleanMobile }] : []),
         ],
       },
     });
 
     if (existingUser) {
-      if (existingUser.isVerified) {
-        throw new ConflictException(
-          'An account with this email or mobile number already exists.',
-        );
-      }
-      // If unverified, resend OTP rather than error out
-      return await this.resendOtp({ emailOrMobile: destination });
+      throw new ConflictException(
+        'User already exists. An account with this email is already registered. Please sign in instead.',
+      );
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -88,9 +87,9 @@ export class AuthService {
     const user = await this.runInTx(async (tx) => {
       const newUser = await tx.user.create({
         data: {
-          name: dto.name,
-          email: dto.email || null,
-          mobile: dto.mobile || null,
+          name: dto.name.trim(),
+          email: cleanEmail || null,
+          mobile: cleanMobile || null,
           passwordHash,
           role: dto.role,
           isVerified: false,
@@ -531,9 +530,15 @@ export class AuthService {
 
   // Helper methods
   private async findUserByEmailOrMobile(identifier: string): Promise<User | null> {
+    const clean = identifier ? identifier.trim() : '';
+    const cleanLower = clean.toLowerCase();
     return await this.prisma.user.findFirst({
       where: {
-        OR: [{ email: identifier }, { mobile: identifier }],
+        OR: [
+          { email: cleanLower },
+          { email: clean },
+          { mobile: clean },
+        ],
       },
       include: {
         studentDetails: true,

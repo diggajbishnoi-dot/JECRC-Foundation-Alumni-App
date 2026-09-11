@@ -6,6 +6,7 @@ export interface SendOtpResult {
     expiresAt: Date;
     otpCodeHash: string;
     previewOtpForDev?: string;
+    deliveryNotice?: string;
 }
 export declare class OtpService {
     private readonly configService;

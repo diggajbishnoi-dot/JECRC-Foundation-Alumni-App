@@ -44,29 +44,28 @@ let AuthService = AuthService_1 = class AuthService {
         if (!dto.email && !dto.mobile) {
             throw new common_1.BadRequestException('At least one of email or mobile number must be provided');
         }
-        const channel = dto.mobile ? client_1.OtpChannel.SMS : client_1.OtpChannel.EMAIL;
-        const destination = dto.mobile || dto.email;
+        const cleanEmail = dto.email ? dto.email.trim().toLowerCase() : undefined;
+        const cleanMobile = dto.mobile ? dto.mobile.trim() : undefined;
+        const channel = cleanMobile ? client_1.OtpChannel.SMS : client_1.OtpChannel.EMAIL;
+        const destination = cleanMobile || cleanEmail;
         const existingUser = await this.prisma.user.findFirst({
             where: {
                 OR: [
-                    ...(dto.email ? [{ email: dto.email }] : []),
-                    ...(dto.mobile ? [{ mobile: dto.mobile }] : []),
+                    ...(cleanEmail ? [{ email: cleanEmail }, { email: dto.email.trim() }] : []),
+                    ...(cleanMobile ? [{ mobile: cleanMobile }] : []),
                 ],
             },
         });
         if (existingUser) {
-            if (existingUser.isVerified) {
-                throw new common_1.ConflictException('An account with this email or mobile number already exists.');
-            }
-            return await this.resendOtp({ emailOrMobile: destination });
+            throw new common_1.ConflictException('User already exists. An account with this email is already registered. Please sign in instead.');
         }
         const passwordHash = await bcrypt.hash(dto.password, 10);
         const user = await this.runInTx(async (tx) => {
             const newUser = await tx.user.create({
                 data: {
-                    name: dto.name,
-                    email: dto.email || null,
-                    mobile: dto.mobile || null,
+                    name: dto.name.trim(),
+                    email: cleanEmail || null,
+                    mobile: cleanMobile || null,
                     passwordHash,
                     role: dto.role,
                     isVerified: false,
@@ -406,9 +405,15 @@ let AuthService = AuthService_1 = class AuthService {
         };
     }
     async findUserByEmailOrMobile(identifier) {
+        const clean = identifier ? identifier.trim() : '';
+        const cleanLower = clean.toLowerCase();
         return await this.prisma.user.findFirst({
             where: {
-                OR: [{ email: identifier }, { mobile: identifier }],
+                OR: [
+                    { email: cleanLower },
+                    { email: clean },
+                    { mobile: clean },
+                ],
             },
             include: {
                 studentDetails: true,
