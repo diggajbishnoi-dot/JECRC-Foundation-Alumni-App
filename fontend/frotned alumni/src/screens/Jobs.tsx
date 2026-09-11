@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Clock, Users, CalendarDays, ExternalLink, X, BadgeCheck, Link2, MessageCircle, ListFilter } from "lucide-react";
+import { MapPin, Clock, Users, CalendarDays, ExternalLink, X, BadgeCheck, Link2, MessageCircle, ListFilter, Plus } from "lucide-react";
 import { useStore } from "../state/store";
 import { Job } from "../data/mock";
 import { Btn, EmptyState, Field, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Tag } from "../components/ui";
@@ -10,7 +10,7 @@ const modeFilters = ["Any mode", "Onsite", "Remote", "Hybrid"] as const;
 
 /* ============== JOBS BOARD ============== */
 export function JobsScreen() {
-  const { allJobs, push, pop, toast } = useStore();
+  const { allJobs, push, pop, toast, me } = useStore();
   const [type, setType] = useState<(typeof typeFilters)[number]>("All");
   const [mode, setMode] = useState<(typeof modeFilters)[number]>("Any mode");
   const [loading, setLoading] = useState(true);
@@ -37,21 +37,32 @@ export function JobsScreen() {
           title="Jobs & Internships"
           onBack={pop}
           right={
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setFilterSheetOpen(true)}
-              className={`relative mr-2 flex h-9 w-9 items-center justify-center rounded-full shadow-sm border transition-colors cursor-pointer ${
-                hasActiveFilters
-                  ? "bg-navy text-white border-navy"
-                  : "bg-white text-navy border-line/70 hover:bg-page"
-              }`}
-              title="Filter opportunities"
-            >
-              <ListFilter size={16} />
-              {hasActiveFilters && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 rounded-full bg-gold ring-2 ring-white" />
-              )}
-            </motion.button>
+            <div className="mr-1 flex items-center gap-1.5">
+              <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={() => push({ name: "postJob" })}
+                className="flex h-9 items-center gap-1 rounded-full bg-gold px-3 text-[12px] font-bold text-ink shadow-sm cursor-pointer"
+                title="Post an Opportunity"
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Post</span>
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setFilterSheetOpen(true)}
+                className={`relative flex h-9 w-9 items-center justify-center rounded-full shadow-sm border transition-colors cursor-pointer ${
+                  hasActiveFilters
+                    ? "bg-navy text-white border-navy"
+                    : "bg-white text-navy border-line/70 hover:bg-page"
+                }`}
+                title="Filter opportunities"
+              >
+                <ListFilter size={16} />
+                {hasActiveFilters && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 rounded-full bg-gold ring-2 ring-white" />
+                )}
+              </motion.button>
+            </div>
           }
         />
         <div className="px-4 sm:px-5 pb-3 pt-1 space-y-2">
@@ -90,7 +101,27 @@ export function JobsScreen() {
           {loading ? (
             <ListSkeleton rows={4} />
           ) : results.length === 0 ? (
-            <EmptyState icon={<Clock size={34} />} title="No roles here yet" copy="Try a different filter — new opportunities get posted by alumni almost daily." cta="Show all" onCta={() => { setType("All"); setMode("Any mode"); }} />
+            allJobs.length === 0 ? (
+              <EmptyState
+                icon={<Clock size={34} />}
+                title="No roles posted yet"
+                copy="Be the first to share an internship lead or job opening with fellow JECRC members."
+                cta="Post an Opportunity"
+                onCta={() => push({ name: "postJob" })}
+              />
+            ) : (
+              <EmptyState
+                icon={<Clock size={34} />}
+                title="No matching roles"
+                copy={`No roles found for ${type} (${mode}). Tap below to show all ${allJobs.length} opportunities.`}
+                cta="Show all roles"
+                onCta={() => {
+                  setType("All");
+                  setMode("Any mode");
+                  toast("Showing all opportunities");
+                }}
+              />
+            )
           ) : (
             <AnimatePresence>
               {results.map((j, i) => (
