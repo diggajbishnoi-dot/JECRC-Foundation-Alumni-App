@@ -171,10 +171,31 @@ function DiscussionHighlights() {
 
 /* =============== STUDENT HOME =============== */
 function StudentHome() {
-  const { push } = useStore();
+  const { push, received, acceptConn, rejectConn } = useStore();
   return (
     <>
       <HeroBanner />
+      {received.length > 0 && (
+        <motion.div variants={item} className="mt-4">
+          <SectionHeader title={`Pending requests (${received.length})`} action="All" onAction={() => push({ name: "connections" })} />
+          <div className="space-y-3">
+            {received.slice(0, 2).map((id) => {
+              const p = personById(id);
+              return (
+                <div key={id} className="card flex items-center gap-3 p-3.5">
+                  <InitialsAvatar name={p.name} size={44} layoutId={`av-${id}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-bold text-ink">{p.name}</p>
+                    <p className="truncate text-[12px] text-sub">{p.headline}</p>
+                  </div>
+                  <button onClick={() => acceptConn(id)} className="btn-press rounded-lg bg-navy px-3.5 py-2 text-[12px] font-bold text-white">Accept</button>
+                  <button onClick={() => rejectConn(id)} className="btn-press rounded-lg bg-page px-3 py-2 text-[12px] font-bold text-sub">Skip</button>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
       <motion.button
         variants={item}
         whileTap={{ scale: 0.97 }}

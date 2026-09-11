@@ -67,13 +67,17 @@ export function DirectoryScreen() {
     });
   }, [debounced, filters]);
 
-  // Directory displays REAL backend users + the currently logged in user
+  // Directory displays verified network members (excludes the currently logged-in user)
   const allDirectoryPeople = useMemo(() => {
-    const list = [...backendUsers];
-    if (me && me.name && !list.some((u) => u.id === me.id || u.name.toLowerCase() === me.name.toLowerCase())) {
-      list.unshift(me);
-    }
-    return list;
+    return backendUsers.filter((u) => {
+      if (!u) return false;
+      if (me?.id && u.id === me.id) return false;
+      if (me?.email && u.email && u.email.toLowerCase() === me.email.toLowerCase()) return false;
+      if (me?.name && u.name && u.name.toLowerCase() === me.name.toLowerCase()) {
+        if (!u.email || (me.email && u.email.toLowerCase() === me.email.toLowerCase())) return false;
+      }
+      return true;
+    });
   }, [backendUsers, me]);
 
   const results = allDirectoryPeople;

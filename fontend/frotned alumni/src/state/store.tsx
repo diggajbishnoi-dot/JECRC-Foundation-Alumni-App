@@ -147,6 +147,102 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600);
   }, []);
 
+  const connIdMap = useRef<Record<string, string>>({});
+
+  const syncConnections = useCallback(() => {
+    if (!api.getToken()) return;
+
+    // 1. Fetch Accepted Connections
+    api.getConnections().then((res) => {
+      if (res.success && res.data?.items && Array.isArray(res.data.items)) {
+        res.data.items.forEach((item: any) => {
+          const peer = item.peer;
+          if (peer?.id) {
+            connIdMap.current[peer.id] = item.connectionId;
+            setConn((prev) => ({ ...prev, [peer.id]: "connected" }));
+            const mappedPerson: Person = {
+              id: peer.id,
+              name: peer.name,
+              role: (peer.role?.toLowerCase() as Role) || "alumni",
+              headline: peer.alumniDetails?.designation
+                ? `${peer.alumniDetails.designation} @ ${peer.alumniDetails.currentCompany || "Enterprise"}`
+                : `${peer.role === "ALUMNI" ? "Alumnus" : "Student"} · JECRC Foundation`,
+              branch: peer.alumniDetails?.branch || peer.studentDetails?.branch || "CSE",
+              batch: peer.alumniDetails?.batch || (peer.studentDetails?.expectedPassoutYear ? String(peer.studentDetails.expectedPassoutYear) : "2024"),
+              company: peer.alumniDetails?.currentCompany,
+              city: peer.city || "Jaipur",
+              about: peer.bio || "Connected JECRC Member",
+              color: peer.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
+            };
+            registerDynamicUser(mappedPerson);
+          }
+        });
+      }
+    }).catch(() => {});
+
+    // 2. Fetch Incoming Pending Requests
+    api.getPendingRequests().then((res) => {
+      if (res.success && Array.isArray(res.data)) {
+        const receivedIds: string[] = [];
+        res.data.forEach((item: any) => {
+          const reqUser = item.requester;
+          if (reqUser?.id) {
+            connIdMap.current[reqUser.id] = item.id;
+            receivedIds.push(reqUser.id);
+            setConn((prev) => ({ ...prev, [reqUser.id]: "none" }));
+            const mappedPerson: Person = {
+              id: reqUser.id,
+              name: reqUser.name,
+              role: (reqUser.role?.toLowerCase() as Role) || "alumni",
+              headline: reqUser.alumniDetails?.designation
+                ? `${reqUser.alumniDetails.designation} @ ${reqUser.alumniDetails.currentCompany || "Enterprise"}`
+                : `${reqUser.role === "ALUMNI" ? "Alumnus" : "Student"} · JECRC Foundation`,
+              branch: reqUser.alumniDetails?.branch || reqUser.studentDetails?.branch || "CSE",
+              batch: reqUser.alumniDetails?.batch || (reqUser.studentDetails?.expectedPassoutYear ? String(reqUser.studentDetails.expectedPassoutYear) : "2024"),
+              company: reqUser.alumniDetails?.currentCompany,
+              city: reqUser.city || "Jaipur",
+              about: reqUser.bio || "JECRC Member",
+              color: reqUser.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
+            };
+            registerDynamicUser(mappedPerson);
+          }
+        });
+        setReceived(receivedIds);
+      }
+    }).catch(() => {});
+
+    // 3. Fetch Outgoing Sent Requests
+    api.getSentRequests().then((res) => {
+      if (res.success && Array.isArray(res.data)) {
+        const sentIds: string[] = [];
+        res.data.forEach((item: any) => {
+          const recUser = item.receiver;
+          if (recUser?.id) {
+            connIdMap.current[recUser.id] = item.id;
+            sentIds.push(recUser.id);
+            setConn((prev) => ({ ...prev, [recUser.id]: "pending" }));
+            const mappedPerson: Person = {
+              id: recUser.id,
+              name: recUser.name,
+              role: (recUser.role?.toLowerCase() as Role) || "alumni",
+              headline: recUser.alumniDetails?.designation
+                ? `${recUser.alumniDetails.designation} @ ${recUser.alumniDetails.currentCompany || "Enterprise"}`
+                : `${recUser.role === "ALUMNI" ? "Alumnus" : "Student"} · JECRC Foundation`,
+              branch: recUser.alumniDetails?.branch || recUser.studentDetails?.branch || "CSE",
+              batch: recUser.alumniDetails?.batch || (recUser.studentDetails?.expectedPassoutYear ? String(recUser.studentDetails.expectedPassoutYear) : "2024"),
+              company: recUser.alumniDetails?.currentCompany,
+              city: recUser.city || "Jaipur",
+              about: recUser.bio || "JECRC Member",
+              color: recUser.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
+            };
+            registerDynamicUser(mappedPerson);
+          }
+        });
+        setSent(sentIds);
+      }
+    }).catch(() => {});
+  }, []);
+
   // Sync state with Backend API
   useEffect(() => {
     // 0. Sync Current User from Token if previously logged in
@@ -173,22 +269,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setPhase("app");
         }
       });
-      // Sync real connections
-      api.getConnections().then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          const connMap: Record<string, "none" | "pending" | "connected"> = {};
-          res.data.forEach((c: any) => {
-            const otherId = c.receiverId === me.id ? c.senderId : c.receiverId;
-            if (c.status === "ACCEPTED") {
-              connMap[otherId] = "connected";
-            } else if (c.status === "PENDING") {
-              connMap[otherId] = "pending";
-            }
-          });
-          setConn(connMap);
-        }
-      });
+      syncConnections();
     }
+
+    const pollTimer = setInterval(() => {
+      if (api.getToken()) {
+        syncConnections();
+      }
+    }, 5000);
+
+    const onFocus = () => {
+      if (api.getToken()) {
+        syncConnections();
+      }
+    };
+    window.addEventListener("focus", onFocus);
 
     // 1. Sync Jobs / Posts
     api.getPosts().then((res) => {
@@ -240,7 +335,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       }
     });
-  }, []);
+
+    return () => {
+      clearInterval(pollTimer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [syncConnections]);
 
   const goTab = useCallback((t: Tab) => {
     setStack([]);
@@ -260,32 +360,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const requestConnect = useCallback(
-    (userId: string) => {
+    async (userId: string) => {
       setConn((c) => ({ ...c, [userId]: "pending" }));
       setSent((s) => (s.includes(userId) ? s : [...s, userId]));
       toast("Connection request sent");
-      api.requestConnection(userId).catch(() => {});
+      try {
+        const res = await api.requestConnection(userId);
+        if (res.success && res.data?.id) {
+          connIdMap.current[userId] = res.data.id;
+        }
+      } catch (err: any) {}
     },
     [toast]
   );
 
   const acceptConn = useCallback(
-    (userId: string) => {
+    async (userId: string) => {
       setConn((c) => ({ ...c, [userId]: "connected" }));
       setReceived((r) => r.filter((x) => x !== userId));
       unlockChat(userId);
       toast("Connected! Chat unlocked");
+      const connectionId = connIdMap.current[userId] || userId;
+      try {
+        await api.acceptConnection(connectionId);
+        syncConnections();
+      } catch (err: any) {}
     },
-    [toast, unlockChat]
+    [toast, unlockChat, syncConnections]
   );
 
   const rejectConn = useCallback(
-    (userId: string) => {
+    async (userId: string) => {
       setConn((c) => ({ ...c, [userId]: "none" }));
       setReceived((r) => r.filter((x) => x !== userId));
       toast("Request declined");
+      const connectionId = connIdMap.current[userId] || userId;
+      try {
+        await api.rejectConnection(connectionId);
+        syncConnections();
+      } catch (err: any) {}
     },
-    [toast]
+    [toast, syncConnections]
   );
 
   const sendChat = useCallback(

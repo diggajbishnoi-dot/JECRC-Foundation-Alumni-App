@@ -219,16 +219,36 @@ class ApiService {
     return await this.request('/connections');
   }
 
+  async getPendingRequests() {
+    return await this.request('/connections/pending');
+  }
+
+  async getSentRequests() {
+    return await this.request('/connections/sent');
+  }
+
   async requestConnection(receiverId: string) {
-    return await this.request(`/connections/request/${receiverId}`, {
+    return await this.request('/connections/request', {
       method: 'POST',
+      body: JSON.stringify({ receiverId }),
     });
   }
 
-  async respondConnection(connectionId: string, status: 'ACCEPTED' | 'REJECTED') {
-    return await this.request(`/connections/${connectionId}`, {
+  async acceptConnection(connectionId: string) {
+    return await this.request(`/connections/${connectionId}/accept`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+    });
+  }
+
+  async rejectConnection(connectionId: string) {
+    return await this.request(`/connections/${connectionId}/reject`, {
+      method: 'PATCH',
+    });
+  }
+
+  async removeConnection(connectionId: string) {
+    return await this.request(`/connections/${connectionId}`, {
+      method: 'DELETE',
     });
   }
 
