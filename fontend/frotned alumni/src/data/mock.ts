@@ -62,6 +62,9 @@ export interface Group {
   members: number;
   tag: string;
   desc: string;
+  batch?: string;
+  branch?: string;
+  type?: "batch" | "department" | "general";
 }
 
 export interface Notif {
@@ -140,13 +143,100 @@ export const threads: Thread[] = [
   ] },
 ];
 
+const generateBatchGroups = (): Group[] => {
+  const list: Group[] = [];
+  for (let y = 2004; y <= 2030; y++) {
+    list.push({
+      id: `batch-${y}`,
+      name: `Class of ${y} (Batch ${y})`,
+      members: Math.floor(180 + ((y * 23) % 240)),
+      tag: "Batch",
+      type: "batch",
+      batch: String(y),
+      desc: `Official JECRC Foundation alumni & student group for the Class of ${y}. Connect with your batchmates, share milestones and stay in touch.`,
+    });
+  }
+  return list;
+};
+
+const departmentCommunities: Group[] = [
+  {
+    id: "dept-cse",
+    name: "CSE Department Community",
+    members: 1420,
+    tag: "Department",
+    type: "department",
+    branch: "CSE",
+    desc: "Official Community for Computer Science & Engineering students and alumni of JECRC Foundation.",
+  },
+  {
+    id: "dept-aiml",
+    name: "AI & Machine Learning (AIML / CSAI) Community",
+    members: 890,
+    tag: "Department",
+    type: "department",
+    branch: "AIML",
+    desc: "Official Community for Artificial Intelligence & Machine Learning at JECRC Foundation.",
+  },
+  {
+    id: "dept-aids",
+    name: "AI & Data Science (AIDS) Community",
+    members: 640,
+    tag: "Department",
+    type: "department",
+    branch: "AIDS",
+    desc: "Official Community for Artificial Intelligence & Data Science at JECRC Foundation.",
+  },
+  {
+    id: "dept-it",
+    name: "Information Technology (IT) Community",
+    members: 980,
+    tag: "Department",
+    type: "department",
+    branch: "IT",
+    desc: "Official Community for Information Technology students and alumni of JECRC Foundation.",
+  },
+  {
+    id: "dept-ece",
+    name: "Electronics & Communication (ECE) Community",
+    members: 1120,
+    tag: "Department",
+    type: "department",
+    branch: "ECE",
+    desc: "Official Community for Electronics & Communication Engineering at JECRC Foundation.",
+  },
+  {
+    id: "dept-me",
+    name: "Mechanical Engineering (ME) Community",
+    members: 760,
+    tag: "Department",
+    type: "department",
+    branch: "ME",
+    desc: "Official Community for Mechanical Engineering students and alumni of JECRC Foundation.",
+  },
+  {
+    id: "dept-ee",
+    name: "Electrical Engineering (EE) Community",
+    members: 620,
+    tag: "Department",
+    type: "department",
+    branch: "EE",
+    desc: "Official Community for Electrical Engineering students and alumni of JECRC Foundation.",
+  },
+  {
+    id: "dept-civil",
+    name: "Civil Engineering Community",
+    members: 530,
+    tag: "Department",
+    type: "department",
+    branch: "Civil",
+    desc: "Official Community for Civil Engineering students and alumni of JECRC Foundation.",
+  },
+];
+
 export const groups: Group[] = [
-  { id: "g1", name: "CSE Batch 2019", members: 184, tag: "Batch", desc: "Official group for CSE class of 2019 — reunions, referrals, random nostalgia." },
-  { id: "g2", name: "Bengaluru Chapter", members: 96, tag: "City", desc: "JECRCites in Bengaluru. Monthly meetups, flat-hunting help, weekend treks." },
-  { id: "g3", name: "Startup Circle", members: 141, tag: "Interest", desc: "Founders, early employees and the startup-curious. Weekly demo threads." },
-  { id: "g4", name: "Higher Studies Abroad", members: 210, tag: "Interest", desc: "MS/MBA aspirants and admits — SOP reviews, university threads, visa help." },
-  { id: "g5", name: "Alumni Meet — Volunteers", members: 58, tag: "Event", desc: "Coordination group for the Alumni Meet volunteer team." },
-  { id: "g6", name: "ECE Network", members: 122, tag: "Branch", desc: "Core engineering careers, semiconductors, and everything ECE." },
+  ...generateBatchGroups(),
+  ...departmentCommunities,
 ];
 
 export const notifs: Notif[] = [

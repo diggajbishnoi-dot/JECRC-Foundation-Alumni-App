@@ -279,61 +279,158 @@ export function ThreadDetailScreen({ id }: { id: string }) {
   );
 }
 
-/* ================= GROUPS ================= */
+/* ================= GROUPS & DEPARTMENT COMMUNITIES ================= */
+const normalizeBatch = (rawBatch?: string): string => {
+  if (!rawBatch) return "2024";
+  const match = rawBatch.match(/20\d{2}/);
+  return match ? match[0] : "2024";
+};
+
+const normalizeBranch = (rawBranch?: string): string => {
+  if (!rawBranch) return "CSE";
+  const b = rawBranch.toUpperCase().trim();
+  if (b.includes("AIML") || b.includes("AI & ML") || b.includes("AI/ML") || b.includes("CSAI") || b.includes("ARTIFICIAL")) return "AIML";
+  if (b.includes("AIDS") || b.includes("DATA SCIENCE") || b.includes("DS")) return "AIDS";
+  if (b.includes("CSE") || b.includes("COMPUTER")) return "CSE";
+  if (b.includes("ECE") || b.includes("ELECTRONIC")) return "ECE";
+  if (b.includes("IT") || b.includes("INFORMATION")) return "IT";
+  if (b.includes("ME") || b.includes("MECHANIC")) return "ME";
+  if (b.includes("EE") || b.includes("ELECTRICAL")) return "EE";
+  if (b.includes("CIVIL")) return "Civil";
+  return "CSE";
+};
+
 export function GroupsScreen() {
-  const { pop, push, joined, toggleJoin, toast } = useStore();
+  const { pop, push, joined, toggleJoin, toast, me } = useStore();
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
+    const t = setTimeout(() => setLoading(false), 400);
     return () => clearTimeout(t);
   }, []);
 
-  const mine = allGroups.filter((g) => joined.has(g.id));
-  const explore = allGroups.filter((g) => !joined.has(g.id));
+  const userBatch = normalizeBatch(me.batch);
+  const userBranch = normalizeBranch(me.branch);
+
+  // Strictly filter: ONLY user's own batch group and user's own department community
+  const myBatchGroup = allGroups.find(
+    (g) => g.type === "batch" && g.batch === userBatch
+  ) || allGroups.find((g) => g.type === "batch" && g.batch === "2024");
+
+  const myDeptCommunity = allGroups.find(
+    (g) => g.type === "department" && g.branch === userBranch
+  ) || allGroups.find((g) => g.type === "department" && g.branch === "CSE");
+
+  const userGroups = [myBatchGroup, myDeptCommunity].filter(Boolean) as (typeof allGroups)[0];
 
   return (
-    <div className="h-full overflow-y-auto no-scrollbar bg-page pb-10">
-      <ScreenHeader title="Groups" onBack={pop} right={<span className="mr-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-navy shadow-sm">{joined.size} joined</span>} />
+    <div className="h-full overflow-y-auto no-scrollbar bg-page pb-12">
+      <ScreenHeader
+        title="Groups & Communities"
+        onBack={pop}
+        right={
+          <span className="mr-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-navy shadow-sm border border-line/40">
+            Batch {userBatch} · {userBranch}
+          </span>
+        }
+      />
       {loading ? (
-        <div className="px-5 pt-4"><ListSkeleton rows={4} /></div>
+        <div className="px-5 pt-4"><ListSkeleton rows={3} /></div>
       ) : (
-        <div className="px-5 pt-2">
-          {explore.length > 0 && (
-            <>
-              <h3 className="mb-3 mt-2 font-display text-[17px] font-semibold text-ink">Suggested for you</h3>
-              <div className="no-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5 pb-1">
-                {explore.map((g, i) => (
-                  <motion.div key={g.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="card w-[210px] shrink-0 p-4">
-                    <div className="flex items-center justify-between">
-                      <InitialsAvatar name={g.name} size={42} rounded="rounded-xl" />
-                      <Tag tone="peri">{g.tag}</Tag>
-                    </div>
-                    <p className="mt-3 truncate text-[14.5px] font-bold text-ink">{g.name}</p>
-                    <p className="mt-0.5 flex items-center gap-1 text-[11.5px] text-sub"><Users size={11} /> {g.members} members</p>
-                    <Btn variant="primary" className="mt-3.5 !h-10 w-full !text-[13px]" onClick={() => { toggleJoin(g.id); toast(`Joined “${g.name}”`); }}>
-                      Join group
-                    </Btn>
-                  </motion.div>
-                ))}
+        <div className="px-5 pt-3 space-y-6">
+          <div className="rounded-2xl bg-gradient-to-r from-navy to-navy-800 p-4 text-white shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-gold">Personalized Hub</p>
+            <h3 className="mt-1 font-display text-[17px] font-bold">Your Official Groups</h3>
+            <p className="mt-1 text-[12px] text-white/75 leading-relaxed">
+              Exclusively mapped to your graduating batch ({userBatch}) and academic department ({userBranch}).
+            </p>
+          </div>
+
+          {/* 1. Official Batch Group */}
+          {myBatchGroup && (
+            <div>
+              <div className="mb-2.5 flex items-center justify-between">
+                <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub/70">🎓 Official Batch Group</h3>
+                <Tag tone="gold">Batch {myBatchGroup.batch}</Tag>
               </div>
-            </>
+              <div className="card p-4.5 space-y-3.5 border border-line shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/15 text-gold-700 font-bold text-[16px] ring-2 ring-gold/30">
+                    {myBatchGroup.batch?.slice(-2) || "24"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-display text-[16px] font-bold text-ink">{myBatchGroup.name}</h4>
+                    <p className="mt-0.5 text-[12px] text-sub flex items-center gap-1.5">
+                      <Users size={12} className="text-navy" /> {myBatchGroup.members} members registered
+                    </p>
+                    <p className="mt-2 text-[12.5px] text-ink/75 leading-relaxed">{myBatchGroup.desc}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-line/60">
+                  <Btn
+                    variant="primary"
+                    className="flex-1 !h-10 !text-[13px]"
+                    onClick={() => push({ name: "groupDetail", id: myBatchGroup.id })}
+                  >
+                    Open Batch Hub →
+                  </Btn>
+                  <Btn
+                    variant={joined.has(myBatchGroup.id) ? "outline" : "secondary"}
+                    className="!h-10 !px-4 !text-[12px]"
+                    onClick={() => {
+                      toggleJoin(myBatchGroup.id);
+                      toast(joined.has(myBatchGroup.id) ? `Left ${myBatchGroup.name}` : `Joined ${myBatchGroup.name}`);
+                    }}
+                  >
+                    {joined.has(myBatchGroup.id) ? "Joined ✓" : "Join"}
+                  </Btn>
+                </div>
+              </div>
+            </div>
           )}
 
-          <h3 className="mb-3 mt-6 font-display text-[17px] font-semibold text-ink">My Groups</h3>
-          {mine.length === 0 ? (
-            <EmptyState icon={<Users size={34} />} title="No groups yet" copy="Join your batch group, city chapter or an interest circle to get the conversation going." />
-          ) : (
-            <div className="space-y-3">
-              {mine.map((g) => (
-                <motion.button key={g.id} whileTap={{ scale: 0.98 }} onClick={() => push({ name: "groupDetail", id: g.id })} className="card flex w-full items-center gap-3 p-3.5 text-left">
-                  <InitialsAvatar name={g.name} size={48} rounded="rounded-2xl" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14.5px] font-bold text-ink">{g.name}</p>
-                    <p className="truncate text-[12px] text-sub">{g.members} members · {g.tag}</p>
+          {/* 2. Department Community */}
+          {myDeptCommunity && (
+            <div>
+              <div className="mb-2.5 flex items-center justify-between">
+                <h3 className="text-[12px] font-bold uppercase tracking-wider text-sub/70">🏛️ Department Community</h3>
+                <Tag tone="peri">{myDeptCommunity.branch} Department</Tag>
+              </div>
+              <div className="card p-4.5 space-y-3.5 border border-line shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy-50 text-navy font-bold text-[15px] ring-2 ring-navy/20">
+                    <GraduationCap size={22} />
                   </div>
-                  <ChevronRight size={17} className="text-sub/50" />
-                </motion.button>
-              ))}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-display text-[16px] font-bold text-ink">{myDeptCommunity.name}</h4>
+                    <p className="mt-0.5 text-[12px] text-sub flex items-center gap-1.5">
+                      <Users size={12} className="text-navy" /> {myDeptCommunity.members} members registered
+                    </p>
+                    <p className="mt-2 text-[12.5px] text-ink/75 leading-relaxed">{myDeptCommunity.desc}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-line/60">
+                  <Btn
+                    variant="primary"
+                    className="flex-1 !h-10 !text-[13px]"
+                    onClick={() => push({ name: "groupDetail", id: myDeptCommunity.id })}
+                  >
+                    Open Community Hub →
+                  </Btn>
+                  <Btn
+                    variant={joined.has(myDeptCommunity.id) ? "outline" : "secondary"}
+                    className="!h-10 !px-4 !text-[12px]"
+                    onClick={() => {
+                      toggleJoin(myDeptCommunity.id);
+                      toast(joined.has(myDeptCommunity.id) ? `Left ${myDeptCommunity.name}` : `Joined ${myDeptCommunity.name}`);
+                    }}
+                  >
+                    {joined.has(myDeptCommunity.id) ? "Joined ✓" : "Join"}
+                  </Btn>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -343,69 +440,125 @@ export function GroupsScreen() {
 }
 
 export function GroupDetailScreen({ id }: { id: string }) {
-  const { pop, joined, toggleJoin, toast } = useStore();
+  const { pop, joined, toggleJoin, toast, me } = useStore();
   const g = allGroups.find((x) => x.id === id);
-  const [posts, setPosts] = useState([
-    { id: "gp1", author: "Priya Verma", text: "Chapter meet this Saturday 6pm at Central Park, Jaipur — who's in?", ago: "2h" },
-    { id: "gp2", author: "Aarav Sharma", text: "Shared the referral tracker sheet in files. Add your target companies before Friday.", ago: "5h" },
-  ]);
+  const [posts, setPosts] = useState<Array<{ id: string; author: string; authorId?: string; role?: string; text: string; ago: string }>>([]);
   const [draft, setDraft] = useState("");
   if (!g) return null;
   const isJoined = joined.has(g.id);
 
+  const handlePost = () => {
+    if (!draft.trim()) return;
+    const newPost = {
+      id: `gp_${Date.now()}`,
+      author: me.name || "Member",
+      authorId: me.id,
+      role: me.role,
+      text: draft.trim(),
+      ago: "Just now",
+    };
+    setPosts((ps) => [newPost, ...ps]);
+    setDraft("");
+    toast("Message posted to group feed");
+  };
+
+  const handleDeletePost = (postId: string) => {
+    setPosts((ps) => ps.filter((p) => p.id !== postId));
+    toast("Post removed");
+  };
+
   return (
     <div className="flex h-full flex-col bg-page">
-      <ScreenHeader title="Group" onBack={pop} />
+      <ScreenHeader title={g.tag === "Batch" ? `Batch ${g.batch}` : `${g.branch} Community`} onBack={pop} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-6">
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden !p-0">
-          <div className="flex h-20 items-end bg-gradient-to-br from-navy-800 to-peri p-4">
-            <Tag tone="gold">{g.tag}</Tag>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden !p-0 shadow-sm border border-line">
+          <div className="flex h-20 items-end bg-gradient-to-br from-navy to-navy-800 p-4">
+            <Tag tone="gold">{g.tag === "Batch" ? `Class of ${g.batch}` : `${g.branch} Dept`}</Tag>
           </div>
           <div className="relative z-10 p-4">
-            <div className="relative z-20 -mt-10 mb-2"><InitialsAvatar name={g.name} size={64} rounded="rounded-2xl" className="ring-4 ring-white shadow-sm" /></div>
+            <div className="relative z-20 -mt-10 mb-2">
+              <InitialsAvatar name={g.name} size={64} rounded="rounded-2xl" className="ring-4 ring-white shadow-sm" />
+            </div>
             <h2 className="font-display text-[19px] font-bold text-ink">{g.name}</h2>
-            <p className="mt-1 text-[12.5px] text-sub">{g.members + (isJoined ? 1 : 0)} members</p>
+            <p className="mt-1 text-[12.5px] text-sub">{g.members + (isJoined ? 1 : 0)} verified members</p>
             <p className="mt-2.5 text-[13.5px] leading-relaxed text-ink/80">{g.desc}</p>
             <Btn
               variant={isJoined ? "outline" : "primary"}
               className="mt-4 w-full !h-11"
-              onClick={() => { toggleJoin(g.id); toast(isJoined ? `Left “${g.name}”` : `Joined “${g.name}”`); }}
+              onClick={() => {
+                toggleJoin(g.id);
+                toast(isJoined ? `Left “${g.name}”` : `Joined “${g.name}”`);
+              }}
             >
-              {isJoined ? "Leave group" : "Join group"}
+              {isJoined ? "Joined ✓ — Leave group" : "Join group"}
             </Btn>
           </div>
         </motion.div>
 
-        <h3 className="mb-3 mt-6 font-display text-[16px] font-semibold text-ink">Group feed</h3>
+        <h3 className="mb-3 mt-6 font-display text-[16px] font-semibold text-ink">Group Discussion &amp; Updates</h3>
         <div className="space-y-3">
-          <AnimatePresence>
-            {posts.map((p) => (
-              <motion.div key={p.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card flex gap-3 p-3.5">
-                <InitialsAvatar name={p.author} size={36} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-bold text-ink">{p.author}</p>
-                    <span className="text-[10.5px] text-sub/60">{p.ago}</span>
-                  </div>
-                  <p className="mt-1 text-[13px] leading-relaxed text-ink/85">{p.text}</p>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          {posts.length === 0 ? (
+            <EmptyState
+              icon={<MessageSquare size={32} />}
+              title="No posts yet"
+              copy={`Be the first to share an update, internship lead, or question with your ${g.tag === "Batch" ? "batchmates" : "department community"}.`}
+            />
+          ) : (
+            <AnimatePresence>
+              {posts.map((p) => {
+                const isAuthor = p.authorId === me.id || p.author === me.name;
+                return (
+                  <motion.div key={p.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card flex gap-3 p-3.5 border border-line">
+                    <InitialsAvatar name={p.author} size={36} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[13px] font-bold text-ink">{p.author}</p>
+                          <span className="text-[10.5px] text-sub/60">{p.ago}</span>
+                        </div>
+                        {isAuthor && (
+                          <button
+                            onClick={() => handleDeletePost(p.id)}
+                            title="Delete post"
+                            className="btn-press p-1 text-sub/60 hover:text-rose cursor-pointer transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[13px] leading-relaxed text-ink/85">{p.text}</p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          )}
         </div>
       </div>
-      {isJoined && (
-        <div className="flex items-center gap-2 border-t border-line bg-white px-4 pb-8 pt-3">
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Post to the group…" className="input !h-11 flex-1 !rounded-full" />
-          <motion.button
-            whileTap={{ scale: 0.88 }}
-            onClick={() => { if (draft.trim()) { setPosts((ps) => [{ id: `gp_${Date.now()}`, author: "You", text: draft.trim(), ago: "now" }, ...ps]); setDraft(""); } }}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${draft.trim() ? "bg-navy text-white" : "bg-page text-sub/50"}`}
-          >
-            <Send size={17} />
-          </motion.button>
-        </div>
-      )}
+
+      <div className="flex items-center gap-2 border-t border-line bg-white px-4 pb-8 pt-3">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handlePost();
+            }
+          }}
+          placeholder={`Post to ${g.tag === "Batch" ? "Batch " + g.batch : g.branch + " Community"}…`}
+          className="input !h-11 flex-1 !rounded-full text-[13px]"
+        />
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={handlePost}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full cursor-pointer ${
+            draft.trim() ? "bg-navy text-white shadow-lg" : "bg-page text-sub/50"
+          }`}
+        >
+          <Send size={17} />
+        </motion.button>
+      </div>
     </div>
   );
 }
