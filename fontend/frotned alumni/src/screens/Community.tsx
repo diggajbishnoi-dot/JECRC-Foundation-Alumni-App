@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, MessageSquare, Plus, Send, Users, GraduationCap, Check,
   MessagesSquare, HeartHandshake, UserCheck, Inbox, ChevronRight, Trash2,
+  BadgeCheck, UserPlus, Sparkles,
 } from "lucide-react";
 import { useStore, personById, allGroups, registerDynamicUser } from "../state/store";
 import { categories, Thread, Person } from "../data/mock";
@@ -470,49 +471,87 @@ export function GroupDetailScreen({ id }: { id: string }) {
   return (
     <div className="flex h-full flex-col bg-page">
       <ScreenHeader title={g.tag === "Batch" ? `Batch ${g.batch}` : `${g.branch} Community`} onBack={pop} />
+
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 sm:px-5 pb-6 pt-2">
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden !p-0 shadow-sm border border-line bg-white rounded-3xl">
-          {/* Header Banner */}
-          <div className="relative h-24 w-full bg-gradient-to-r from-[#0F2A5E] via-[#1A365D] to-[#2563EB] p-3.5 flex items-start justify-end overflow-hidden">
-            <div className="pointer-events-none absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px]" />
-            <Tag tone="gold" className="relative z-10 shadow-sm !text-[11px] font-bold">
+        {/* Main Group Hero Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="overflow-hidden rounded-3xl border border-line bg-white shadow-sm"
+        >
+          {/* Cover Header */}
+          <div className="relative h-28 w-full bg-gradient-to-r from-[#0F2A5E] via-[#1E3A8A] to-[#2563EB] p-4 overflow-hidden flex items-start justify-between">
+            <div className="pointer-events-none absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1.2px,transparent_1.2px)] [background-size:12px_12px]" />
+            <div className="relative z-10 flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md border border-white/20">
+              <Sparkles size={12} className="text-gold" />
+              <span>Official JECRC Group</span>
+            </div>
+            <Tag tone="gold" className="relative z-10 shadow-sm !text-[11.5px] font-bold">
               {g.tag === "Batch" ? `Class of ${g.batch}` : `${g.branch} Dept`}
             </Tag>
           </div>
 
-          {/* Card Body */}
-          <div className="relative px-5 pb-5 pt-10">
-            {/* Overlapping Avatar */}
-            <div className="absolute -top-8 left-5 z-20">
-              <InitialsAvatar name={g.name} size={58} rounded="rounded-2xl" className="ring-4 ring-white shadow-md bg-navy text-white" />
+          {/* Profile & Info Section */}
+          <div className="relative px-5 pb-5 pt-12">
+            {/* Avatar overlapping cover cleanly */}
+            <div className="absolute -top-9 left-5 z-20">
+              <div className="relative flex h-[68px] w-[68px] items-center justify-center rounded-2xl bg-navy text-white text-[20px] font-bold shadow-md ring-4 ring-white">
+                {g.tag === "Batch" ? `B'${g.batch?.slice(-2)}` : g.branch?.slice(0, 3)}
+              </div>
             </div>
 
-            <h2 className="font-display text-[18px] font-bold text-ink leading-tight">{g.name}</h2>
-            <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-sub font-medium">
-              <Users size={13} className="text-navy" />
-              <span>{g.members + (isJoined ? 1 : 0)} verified members</span>
-              <span className="text-line">•</span>
-              <span className="text-emerald-600 font-semibold">Official Channel</span>
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-[19px] font-bold text-ink leading-tight">{g.name}</h2>
+              <BadgeCheck size={18} className="text-[#1D6FC2] shrink-0" />
             </div>
 
-            <p className="mt-3 text-[13px] leading-relaxed text-sub/90">{g.desc}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-sub">
+              <span className="flex items-center gap-1 font-semibold text-navy">
+                <Users size={13} /> {g.members + (isJoined ? 1 : 0)} members
+              </span>
+              <span>•</span>
+              <span className="rounded-md bg-page px-2 py-0.5 font-medium text-sub/80 border border-line">
+                {g.tag === "Batch" ? `Batch of ${g.batch}` : `${g.branch} Engineering`}
+              </span>
+            </div>
 
-            <Btn
-              variant={isJoined ? "outline" : "primary"}
-              className={`mt-4 w-full !h-11 !rounded-2xl font-bold transition-all ${
-                isJoined ? "border-emerald-600/40 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/60" : "bg-navy text-white shadow-md"
-              }`}
+            <p className="mt-3 text-[13px] leading-relaxed text-sub/90 bg-page/50 rounded-xl p-3 border border-line/60">
+              {g.desc}
+            </p>
+
+            <motion.button
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 toggleJoin(g.id);
-                toast(isJoined ? `Left “${g.name}”` : `Joined “${g.name}”`);
+                toast(isJoined ? `Left "${g.name}"` : `Joined "${g.name}"`);
               }}
+              className={`mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[14px] font-bold transition-all cursor-pointer ${
+                isJoined
+                  ? "border border-emerald-600/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  : "bg-navy text-white shadow-md hover:bg-navy-800"
+              }`}
             >
-              {isJoined ? "Joined ✓ — Member of Group" : "Join Group Now"}
-            </Btn>
+              {isJoined ? (
+                <>
+                  <Check size={16} strokeWidth={2.5} />
+                  <span>Joined Group</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus size={16} />
+                  <span>Join Group</span>
+                </>
+              )}
+            </motion.button>
           </div>
         </motion.div>
 
-        <h3 className="mb-3 mt-6 font-display text-[16px] font-semibold text-ink">Group Discussion &amp; Updates</h3>
+        {/* Discussion Feed Section */}
+        <div className="mb-3 mt-6 flex items-center justify-between">
+          <h3 className="font-display text-[16px] font-semibold text-ink">Group Discussions & Updates</h3>
+          <span className="text-[12px] font-medium text-sub">{posts.length} {posts.length === 1 ? "post" : "posts"}</span>
+        </div>
+
         <div className="space-y-3">
           {posts.length === 0 ? (
             <EmptyState
@@ -525,7 +564,13 @@ export function GroupDetailScreen({ id }: { id: string }) {
               {posts.map((p) => {
                 const isAuthor = p.authorId === me.id || p.author === me.name;
                 return (
-                  <motion.div key={p.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card flex gap-3 p-3.5 border border-line">
+                  <motion.div
+                    key={p.id}
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="card flex gap-3 p-3.5 border border-line"
+                  >
                     <InitialsAvatar name={p.author} size={36} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
@@ -553,6 +598,7 @@ export function GroupDetailScreen({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* Message input bar */}
       <div className="flex items-center gap-2 border-t border-line bg-white px-4 pb-8 pt-3">
         <input
           value={draft}
