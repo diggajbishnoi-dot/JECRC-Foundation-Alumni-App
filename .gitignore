@@ -41,3 +41,4 @@ artifacts/
 **/artifacts/
 tmp/
 temp/
+*.tsbuildinfo
