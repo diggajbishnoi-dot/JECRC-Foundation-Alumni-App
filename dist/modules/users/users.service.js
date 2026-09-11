@@ -174,9 +174,7 @@ let UsersService = class UsersService {
         };
     }
     async searchUsers(query) {
-        const where = {
-            isVerified: true,
-        };
+        const where = {};
         if (query.role) {
             where.role = query.role;
         }

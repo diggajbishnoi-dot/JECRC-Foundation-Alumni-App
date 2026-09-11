@@ -165,10 +165,14 @@ class ApiService {
   }
 
   // Users & Directory
-  async searchUsers(query?: string, role?: string) {
+  async searchUsers(query?: string, role?: string, filters?: { branch?: string; batch?: string; company?: string; city?: string }) {
     const params = new URLSearchParams();
-    if (query) params.append('query', query);
+    if (query) params.append('q', query);
     if (role) params.append('role', role);
+    if (filters?.branch) params.append('branch', filters.branch);
+    if (filters?.batch) params.append('batch', filters.batch);
+    if (filters?.company) params.append('company', filters.company);
+    if (filters?.city) params.append('city', filters.city);
     return await this.request(`/users/search?${params.toString()}`);
   }
 

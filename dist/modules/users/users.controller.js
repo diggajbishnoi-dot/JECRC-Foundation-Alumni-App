@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
+const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const users_dto_1 = require("./dto/users.dto");
 const users_service_1 = require("./users.service");
@@ -111,6 +112,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "registerDeviceToken", null);
 __decorate([
+    (0, roles_decorator_1.Public)(),
     (0, common_1.Get)('search'),
     (0, swagger_1.ApiOperation)({
         summary: 'Search & filter directory',

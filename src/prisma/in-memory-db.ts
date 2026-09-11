@@ -386,7 +386,7 @@ export class InMemoryDb {
         }
         const found = filtered[0];
         if (!found) return null;
-        return db.expandRelations(found, args.include, relationsMap);
+        return db.expandRelations(found, args.include || args.select, relationsMap);
       },
       async findMany(args: any = {}) {
         const list = (db[collectionName] as any[]);
@@ -400,7 +400,7 @@ export class InMemoryDb {
         if (args.take) {
           filtered = filtered.slice(0, args.take);
         }
-        return filtered.map((item) => db.expandRelations(item, args.include, relationsMap));
+        return filtered.map((item) => db.expandRelations(item, args.include || args.select, relationsMap));
       },
       async create(args: any) {
         const list = (db[collectionName] as any[]);

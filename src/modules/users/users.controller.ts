@@ -13,6 +13,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import {
   RegisterDeviceTokenDto,
@@ -84,6 +85,7 @@ export class UsersController {
     return await this.usersService.registerDeviceToken(userId, dto);
   }
 
+  @Public()
   @Get('search')
   @ApiOperation({
     summary: 'Search & filter directory',

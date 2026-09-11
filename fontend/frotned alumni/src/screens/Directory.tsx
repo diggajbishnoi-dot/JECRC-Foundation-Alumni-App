@@ -23,7 +23,7 @@ import { cn } from "../utils/cn";
 
 /* ============== DIRECTORY ============== */
 export function DirectoryScreen() {
-  const { push, conn, requestConnect } = useStore();
+  const { push, conn, requestConnect, me } = useStore();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [loading, setLoading] = useState(true);
@@ -36,65 +36,47 @@ export function DirectoryScreen() {
     return () => clearTimeout(t);
   }, [query]);
 
+  // Fetch real users from backend database (live search)
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Fetch real users from backend when token is available or query changes
-  useEffect(() => {
-    if (api.getToken()) {
-      api.searchUsers(debounced).then((res) => {
-        if (res.success && Array.isArray(res.data?.items)) {
-          const mapped: Person[] = res.data.items.map((u: any) => {
-            const mappedPerson: Person = {
-              id: u.id,
-              name: u.name,
-              role: (u.role?.toLowerCase() as any) || "alumni",
-              headline: u.alumniDetails?.designation
-                ? `${u.alumniDetails.designation} @ ${u.alumniDetails.currentCompany || "Enterprise"}`
-                : `${u.role === "ALUMNI" ? "Alumnus" : "Student"} · JECRC`,
-              branch: u.alumniDetails?.branch || u.studentDetails?.branch || "General",
-              batch: u.alumniDetails?.batch || "2020",
-              company: u.alumniDetails?.currentCompany,
-              city: u.city || "Jaipur",
-              about: u.bio || "JECRC Community Member",
-              color: u.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
-            };
-            registerDynamicUser(mappedPerson);
-            return mappedPerson;
-          });
-          setBackendUsers(mapped);
-        }
-      });
-    }
-  }, [debounced]);
-
-  const allDirectoryPeople = useMemo(() => {
-    const combined = [...backendUsers];
-    people.forEach((p) => {
-      if (!combined.some((b) => b.id === p.id || b.name.toLowerCase() === p.name.toLowerCase())) {
-        combined.push(p);
+    setLoading(true);
+    api.searchUsers(debounced, undefined, filters).then((res) => {
+      setLoading(false);
+      if (res.success && Array.isArray(res.data?.items)) {
+        const mapped: Person[] = res.data.items.map((u: any) => {
+          const mappedPerson: Person = {
+            id: u.id,
+            name: u.name,
+            role: (u.role?.toLowerCase() as any) || "alumni",
+            headline: u.alumniDetails?.designation
+              ? `${u.alumniDetails.designation} @ ${u.alumniDetails.currentCompany || "Enterprise"}`
+              : `${u.role === "ALUMNI" ? "Alumnus" : "Student"} · JECRC Foundation`,
+            branch: u.alumniDetails?.branch || u.studentDetails?.branch || "CSE",
+            batch: u.alumniDetails?.batch || (u.studentDetails?.expectedPassoutYear ? String(u.studentDetails.expectedPassoutYear) : "2024"),
+            company: u.alumniDetails?.currentCompany,
+            city: u.city || "Jaipur",
+            about: u.bio || "JECRC Network Member",
+            color: u.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
+          };
+          registerDynamicUser(mappedPerson);
+          return mappedPerson;
+        });
+        setBackendUsers(mapped);
       }
+    }).catch(() => {
+      setLoading(false);
     });
-    return combined;
-  }, [backendUsers]);
+  }, [debounced, filters]);
 
-  const results = useMemo(() => {
-    const q = debounced.trim().toLowerCase();
-    return allDirectoryPeople.filter((p) => {
-      const matchQ =
-        !q ||
-        p.name.toLowerCase().includes(q) ||
-        p.headline.toLowerCase().includes(q) ||
-        (p.company ?? "").toLowerCase().includes(q);
-      const matchB = !filters.batch || p.batch === filters.batch;
-      const matchBr = !filters.branch || p.branch === filters.branch;
-      const matchC = !filters.company || p.company === filters.company;
-      const matchCity = !filters.city || p.city === filters.city;
-      return matchQ && matchB && matchBr && matchC && matchCity;
-    });
-  }, [debounced, filters, allDirectoryPeople]);
+  // Directory displays REAL backend users + the currently logged in user
+  const allDirectoryPeople = useMemo(() => {
+    const list = [...backendUsers];
+    if (me && me.name && !list.some((u) => u.id === me.id || u.name.toLowerCase() === me.name.toLowerCase())) {
+      list.unshift(me);
+    }
+    return list;
+  }, [backendUsers, me]);
+
+  const results = allDirectoryPeople;
 
   const chipData: { id: "batch" | "branch" | "company" | "city"; label: string; active?: string }[] = [
     { id: "branch", label: "Branch", active: filters.branch },
@@ -105,7 +87,7 @@ export function DirectoryScreen() {
 
   const optionsFor = (k: "batch" | "branch" | "company" | "city") => {
     const vals = new Set<string>();
-    people.forEach((p) => {
+    allDirectoryPeople.forEach((p) => {
       const v = k === "batch" ? p.batch : k === "branch" ? p.branch : k === "company" ? p.company : p.city;
       if (v) vals.add(v);
     });
@@ -131,7 +113,7 @@ export function DirectoryScreen() {
             transition={{ delay: 0.05 }}
             className="mt-0.5 text-[13px] text-sub"
           >
-            12,482 alumni &amp; students in the network
+            {allDirectoryPeople.length} verified {allDirectoryPeople.length === 1 ? "member" : "members"} in database
           </motion.p>
 
           {/* Search bar & Filter button */}

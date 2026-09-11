@@ -7,61 +7,61 @@ export declare class UsersController {
         totalConnections: number;
         totalPosts: number;
         studentDetails: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             branch: string;
             currentYear: number;
             expectedPassoutYear: number;
+        };
+        alumniDetails: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-        };
-        alumniDetails: {
             userId: string;
             branch: string;
             batch: string;
             passoutYear: number;
             currentCompany: string;
             designation: string;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
         };
         mentorProfile: {
-            userId: string;
             id: string;
             bio: string | null;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             domains: string[];
             availability: string;
             maxMentees: number;
             isActive: boolean;
         };
-        name: string;
-        role: import(".prisma/client").$Enums.Role;
-        city: string | null;
+        id: string;
         email: string | null;
         mobile: string | null;
-        publicKey: string | null;
-        id: string;
+        name: string;
+        role: import(".prisma/client").$Enums.Role;
         isVerified: boolean;
         profilePicUrl: string | null;
         bio: string | null;
+        city: string | null;
+        publicKey: string | null;
         hideLastSeen: boolean;
         createdAt: Date;
         updatedAt: Date;
     }>;
     updateMe(userId: string, dto: UpdateProfileDto): Promise<{
-        name: string;
-        role: import(".prisma/client").$Enums.Role;
-        city: string | null;
+        id: string;
         email: string | null;
         mobile: string | null;
-        publicKey: string | null;
-        id: string;
+        name: string;
+        role: import(".prisma/client").$Enums.Role;
         isVerified: boolean;
         profilePicUrl: string | null;
         bio: string | null;
+        city: string | null;
+        publicKey: string | null;
         hideLastSeen: boolean;
         createdAt: Date;
         updatedAt: Date;
@@ -78,31 +78,31 @@ export declare class UsersController {
     searchUsers(query: SearchUsersQueryDto): Promise<{
         items: {
             studentDetails: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 userId: string;
                 branch: string;
                 currentYear: number;
                 expectedPassoutYear: number;
+            };
+            alumniDetails: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-            };
-            alumniDetails: {
                 userId: string;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
             };
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            city: string;
-            id: string;
             profilePicUrl: string;
             bio: string;
+            city: string;
         }[];
         meta: {
             total: number;
@@ -128,31 +128,31 @@ export declare class UsersController {
         city: string;
         bio: string;
         studentDetails: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             branch: string;
             currentYear: number;
             expectedPassoutYear: number;
+        };
+        alumniDetails: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-        };
-        alumniDetails: {
             userId: string;
             branch: string;
             batch: string;
             passoutYear: number;
             currentCompany: string;
             designation: string;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
         };
         mentorProfile: {
-            userId: string;
             id: string;
             bio: string | null;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             domains: string[];
             availability: string;
             maxMentees: number;

@@ -238,9 +238,7 @@ export class UsersService {
    * Search and filter alumni and students
    */
   async searchUsers(query: SearchUsersQueryDto) {
-    const where: Prisma.UserWhereInput = {
-      isVerified: true,
-    };
+    const where: Prisma.UserWhereInput = {};
 
     if (query.role) {
       where.role = query.role;
