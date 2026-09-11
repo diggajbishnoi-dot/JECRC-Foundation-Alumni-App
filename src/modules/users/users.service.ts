@@ -285,6 +285,7 @@ export class UsersService {
         select: {
           id: true,
           name: true,
+          email: true,
           role: true,
           profilePicUrl: true,
           city: true,
@@ -330,5 +331,23 @@ export class UsersService {
     });
 
     return { message: 'Device token registered successfully' };
+  }
+
+  /**
+   * Permanently delete user account and all associated data
+   */
+  async deleteAccount(userId: string) {
+    await Promise.all([
+      this.prisma.studentDetails.deleteMany({ where: { userId } }),
+      this.prisma.alumniDetails.deleteMany({ where: { userId } }),
+      this.prisma.mentorProfile.deleteMany({ where: { userId } }),
+      this.prisma.connection.deleteMany({ where: { OR: [{ requesterId: userId }, { receiverId: userId }] } }),
+      this.prisma.mentorshipRequest.deleteMany({ where: { OR: [{ mentorId: userId }, { studentId: userId }] } }),
+      this.prisma.message.deleteMany({ where: { OR: [{ senderId: userId }, { receiverId: userId }] } }),
+      this.prisma.notification.deleteMany({ where: { userId } }),
+      this.prisma.deviceToken.deleteMany({ where: { userId } }),
+    ]);
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { message: 'Account deleted successfully' };
   }
 }

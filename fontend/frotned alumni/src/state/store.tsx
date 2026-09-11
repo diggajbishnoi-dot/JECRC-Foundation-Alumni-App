@@ -513,11 +513,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toast("Logged out");
   }, [clearStack, toast]);
 
-  const deleteAccount = useCallback(() => {
+  const deleteAccount = useCallback(async () => {
+    try {
+      await api.deleteAccount();
+    } catch (e) {}
+    api.setToken(null);
     clearStack();
     setTab("home");
     setPhase("splash");
-  }, [clearStack]);
+    toast("Your account has been deleted permanently.");
+  }, [clearStack, toast]);
 
   const completeRegister = useCallback((d: RegData) => {
     setRole(d.role);

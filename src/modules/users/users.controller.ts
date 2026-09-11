@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -43,6 +44,12 @@ export class UsersController {
     @Body() dto: UpdateProfileDto,
   ) {
     return await this.usersService.updateMe(userId, dto);
+  }
+
+  @Delete('me')
+  @ApiOperation({ summary: 'Delete current user account permanently' })
+  async deleteMe(@CurrentUser('id') userId: string) {
+    return await this.usersService.deleteAccount(userId);
   }
 
   @Post('me/profile-picture')

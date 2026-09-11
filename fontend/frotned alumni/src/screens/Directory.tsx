@@ -46,6 +46,7 @@ export function DirectoryScreen() {
           const mappedPerson: Person = {
             id: u.id,
             name: u.name,
+            email: u.email,
             role: (u.role?.toLowerCase() as any) || "alumni",
             headline: u.alumniDetails?.designation
               ? `${u.alumniDetails.designation} @ ${u.alumniDetails.currentCompany || "Enterprise"}`
@@ -67,15 +68,20 @@ export function DirectoryScreen() {
     });
   }, [debounced, filters]);
 
-  // Directory displays verified network members (excludes the currently logged-in user)
+  // Directory displays verified network members (strictly excludes the currently logged-in user)
   const allDirectoryPeople = useMemo(() => {
+    const myId = me?.id;
+    const myEmail = me?.email?.trim().toLowerCase();
+    const myName = me?.name?.trim().toLowerCase();
+
     return backendUsers.filter((u) => {
       if (!u) return false;
-      if (me?.id && u.id === me.id) return false;
-      if (me?.email && u.email && u.email.toLowerCase() === me.email.toLowerCase()) return false;
-      if (me?.name && u.name && u.name.toLowerCase() === me.name.toLowerCase()) {
-        if (!u.email || (me.email && u.email.toLowerCase() === me.email.toLowerCase())) return false;
-      }
+      // 1. Exclude by ID
+      if (myId && (u.id === myId || u.id === "me")) return false;
+      // 2. Exclude by email
+      if (myEmail && u.email && u.email.trim().toLowerCase() === myEmail) return false;
+      // 3. Exclude by matching full name
+      if (myName && u.name && u.name.trim().toLowerCase() === myName) return false;
       return true;
     });
   }, [backendUsers, me]);

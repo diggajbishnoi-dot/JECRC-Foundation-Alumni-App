@@ -176,6 +176,12 @@ class ApiService {
     return await this.request(`/users/search?${params.toString()}`);
   }
 
+  async deleteAccount() {
+    return await this.request('/users/me', {
+      method: 'DELETE',
+    });
+  }
+
   // Posts & Jobs
   async getPosts(type?: string) {
     const query = type ? `?type=${type}` : '';
