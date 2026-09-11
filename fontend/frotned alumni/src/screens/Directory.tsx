@@ -23,7 +23,7 @@ import { cn } from "../utils/cn";
 
 /* ============== DIRECTORY ============== */
 export function DirectoryScreen() {
-  const { push, conn, requestConnect, me } = useStore();
+  const { push, conn, requestConnect, acceptConn, received, sent, me } = useStore();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [loading, setLoading] = useState(true);
@@ -217,7 +217,16 @@ export function DirectoryScreen() {
               <div className="space-y-3">
                 <AnimatePresence>
                   {results.map((p, i) => {
-                    const state = conn[p.id] ?? "none";
+                    const isReceived = received.includes(p.id);
+                    const isSent = sent.includes(p.id);
+                    const state: "none" | "pending" | "connected" | "received" =
+                      conn[p.id] === "connected"
+                        ? "connected"
+                        : isReceived
+                        ? "received"
+                        : isSent || conn[p.id] === "pending"
+                        ? "pending"
+                        : "none";
                     return (
                       <motion.div
                         key={p.id}
@@ -248,7 +257,12 @@ export function DirectoryScreen() {
                               </span>
                             </div>
                           </div>
-                          <ConnectButton state={state} onConnect={() => requestConnect(p.id)} compact />
+                          <ConnectButton
+                            state={state}
+                            onConnect={() => requestConnect(p.id)}
+                            onAccept={() => acceptConn(p.id)}
+                            compact
+                          />
                         </motion.button>
                       </motion.div>
                     );
@@ -320,14 +334,16 @@ export function DirectoryScreen() {
   );
 }
 
-/* connect / pending / connected button */
+/* connect / pending / connected / received button */
 export function ConnectButton({
   state,
   onConnect,
+  onAccept,
   compact,
 }: {
-  state: "none" | "pending" | "connected";
+  state: "none" | "pending" | "connected" | "received";
   onConnect: () => void;
+  onAccept?: () => void;
   compact?: boolean;
 }) {
   const [justSent, setJustSent] = useState(false);
@@ -340,6 +356,21 @@ export function ConnectButton({
       >
         <Check size={13} /> Connected
       </span>
+    );
+  if (state === "received")
+    return (
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAccept?.();
+        }}
+        className={`flex items-center gap-1 rounded-full bg-[#1F8A64] font-bold text-white shadow-sm cursor-pointer hover:bg-[#196F50] transition-colors ${
+          compact ? "px-3 py-1.5 text-[11px]" : "px-4 py-2 text-[13px]"
+        }`}
+      >
+        <Check size={13} /> Accept
+      </motion.button>
     );
   if (state === "pending" || justSent)
     return (
