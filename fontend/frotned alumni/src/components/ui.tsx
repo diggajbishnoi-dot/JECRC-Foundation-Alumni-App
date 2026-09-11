@@ -3,25 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ChevronLeft, Loader2 } from "lucide-react";
 import { cn } from "../utils/cn";
 
-/* ---------------- Status Bar ---------------- */
-export function StatusBar({ tone = "dark" }: { tone?: "light" | "dark" }) {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const i = setInterval(() => setNow(new Date()), 20000);
-    return () => clearInterval(i);
-  }, []);
-  const t = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
-  const c = tone === "light" ? "text-white" : "text-ink";
-  return (
-    <div className={cn("relative z-40 flex items-center justify-between px-7 pt-4 pb-1 select-none", c)}>
-      <span className="text-[13px] font-semibold tabular-nums">{t}</span>
-      <div className="flex items-center gap-1.5">
-        <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="0.8"/><rect x="4" y="4.5" width="3" height="6.5" rx="0.8"/><rect x="8" y="2" width="3" height="9" rx="0.8"/><rect x="12" y="0" width="3" height="11" rx="0.8"/></svg>
-        <svg width="15" height="11" viewBox="0 0 16 12" fill="currentColor"><path d="M8 9.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8ZM3.6 7.2l1.5 1.5a4 4 0 0 1 5.8 0l1.5-1.5a6 6 0 0 0-8.8 0ZM.7 4.3l1.5 1.5a8.2 8.2 0 0 1 11.6 0l1.5-1.5a10.2 10.2 0 0 0-14.6 0Z"/></svg>
-        <svg width="24" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="20" height="11" rx="3" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="15" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4Z" fill="currentColor" opacity="0.4"/></svg>
-      </div>
-    </div>
-  );
+/* ---------------- Status Bar (Removed fake bar for real native app experience) ---------------- */
+export function StatusBar(_props?: { tone?: "light" | "dark" }) {
+  return null;
 }
 
 /* ---------------- Buttons ---------------- */

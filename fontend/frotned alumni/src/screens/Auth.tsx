@@ -104,9 +104,15 @@ function Stepper({ step }: { step: number }) {
 }
 
 /* ---------- 6-box OTP input ---------- */
-function OtpInput({ onComplete }: { onComplete: (code: string) => void }) {
+function OtpInput({ onComplete, value }: { onComplete: (code: string) => void; value?: string }) {
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const refs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (value && value.length === 6) {
+      setDigits(value.split(""));
+    }
+  }, [value]);
 
   const setDigit = (i: number, v: string) => {
     const d = v.replace(/\D/g, "").slice(-1);
@@ -168,6 +174,7 @@ export default function AuthFlow() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [otp, setOtp] = useState("");
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(30);
   const [remember, setRemember] = useState(true);
   const [loginForm, setLoginForm] = useState({ email: "", pass: "" });
@@ -200,7 +207,7 @@ export default function AuthFlow() {
     setErrors((e) => ({ ...e, [k]: "" }));
   };
 
-  const submitRegister = () => {
+  const submitRegister = async () => {
     const e: Record<string, string> = {};
     if (reg.name.trim().length < 3) e.name = "Please enter your full name";
     if (!emailOk(reg.email)) e.email = "That email doesn't look right";
@@ -209,45 +216,73 @@ export default function AuthFlow() {
     if (!agree) e.agree = "Please accept to continue";
     setErrors(e);
     if (Object.keys(e).length) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setScreen("otp");
-      toast(`OTP sent to ${reg.email} (demo: any 6 digits)`);
-    }, 800);
-  };
 
-  const verifyOtp = () => {
-    if (otp.length < 6) {
-      setErrors({ otp: "Enter the 6-digit code" });
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setScreen("details");
-      toast("Email verified! Complete your profile");
-    }, 800);
-  };
-
-  const submitDetails = async () => {
     setLoading(true);
     try {
-      await api.register({
+      const studentYear = parseInt(reg.year.slice(0, 1)) || 3;
+      const currentYearNum = new Date().getFullYear();
+      const defaultPassout = currentYearNum + (4 - studentYear);
+      const expectedPassout = parseInt(reg.passout) || defaultPassout;
+
+      const res = await api.register({
         name: reg.name,
         email: reg.email,
         password: reg.pass,
         role: roleSel === "alumni" ? "ALUMNI" : "STUDENT",
-        branch: reg.branch,
-        batch: roleSel === "alumni" ? reg.batch : undefined,
-        currentCompany: reg.company || undefined,
-        designation: reg.title || undefined,
-        currentYear: roleSel === "student" ? parseInt(reg.year.slice(0, 1)) || 3 : undefined,
+        branch: reg.branch || "CSE",
+        currentYear: roleSel === "student" ? studentYear : undefined,
+        expectedPassoutYear: roleSel === "student" ? expectedPassout : undefined,
+        alumniBranch: roleSel === "alumni" ? reg.branch || "CSE" : undefined,
+        batch: roleSel === "alumni" ? reg.batch || "2020" : undefined,
+        passoutYear: roleSel === "alumni" ? parseInt(reg.batch) || 2020 : undefined,
+        currentCompany: roleSel === "alumni" ? reg.company || "Independent" : undefined,
+        designation: roleSel === "alumni" ? reg.title || "Alumnus" : undefined,
       });
-    } catch {
-      // Continue client side
+
+      setLoading(false);
+      if (res.success) {
+        setScreen("otp");
+        if (res.data?.previewOtpForDev) {
+          setDevOtp(res.data.previewOtpForDev);
+        }
+        toast(`Verification code generated for ${reg.email}`);
+      } else {
+        setErrors({ email: res.error || "Registration failed. Email may already be in use." });
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setErrors({ email: err.message || "Failed to connect to backend server" });
     }
-    setLoading(false);
+  };
+
+  const verifyOtp = async () => {
+    if (otp.length < 6) {
+      setErrors({ otp: "Enter the complete 6-digit code" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.verifyOtp(reg.email, otp);
+      setLoading(false);
+      if (res.success) {
+        completeRegister({
+          name: reg.name,
+          email: reg.email,
+          role: roleSel,
+          branch: reg.branch,
+          detail: roleSel === "alumni" ? reg.batch : reg.passout,
+        });
+        toast(`Welcome to the JECRC network, ${reg.name.split(" ")[0] || "friend"}!`);
+      } else {
+        setErrors({ otp: res.error || "Invalid OTP entered. Please check your email." });
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setErrors({ otp: "Invalid OTP entered. Please check the code sent to your email." });
+    }
+  };
+
+  const submitDetails = async () => {
     completeRegister({
       name: reg.name,
       email: reg.email,
@@ -339,13 +374,20 @@ export default function AuthFlow() {
     if (!claimUser?.id) return;
     setLoading(true);
     try {
-      await api.claimSendOtp(claimUser.id);
-    } catch {
-      // Demo fallback
+      const res = await api.claimSendOtp(claimUser.id);
+      setLoading(false);
+      setClaimStatus("otp_sent");
+      if (res.data?.previewOtpForDev) {
+        setDevOtp(res.data.previewOtpForDev);
+        toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email} (Dev code: ${res.data.previewOtpForDev})`);
+      } else {
+        toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email}`);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setClaimStatus("otp_sent");
+      toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email}`);
     }
-    setLoading(false);
-    setClaimStatus("otp_sent");
-    toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email} (Demo: 123456)`);
   };
 
   const handleClaimActivate = async () => {
@@ -358,7 +400,7 @@ export default function AuthFlow() {
 
     setLoading(true);
     try {
-      await api.claimActivate({
+      const res = await api.claimActivate({
         userId: claimUser.id,
         otp: claimOtp,
         newPassword: claimPass,
@@ -368,6 +410,11 @@ export default function AuthFlow() {
       });
 
       setLoading(false);
+      if (!res.success) {
+        setErrors({ claimOtp: res.error || "Invalid OTP code entered" });
+        return;
+      }
+
       const claimedRole = (claimUser.role?.toLowerCase() as Role) || claimRole;
       setRole(claimedRole);
       setMe({
@@ -387,7 +434,7 @@ export default function AuthFlow() {
       toast(`🎉 Profile successfully activated! Welcome, ${claimUser.name}.`);
     } catch (err: any) {
       setLoading(false);
-      setErrors({ claimOtp: "Invalid OTP. Use demo code: 123456" });
+      setErrors({ claimOtp: err.message || "Invalid OTP code entered. Please try again." });
     }
   };
 
@@ -905,7 +952,26 @@ export default function AuthFlow() {
               sub={`We sent a 6-digit code to ${reg.email || "your email"}`}
             >
               <Stepper step={1} />
-              <OtpInput onComplete={setOtp} />
+
+              {devOtp && (
+                <div className="my-3 flex items-center justify-between rounded-xl border border-amber-300/80 bg-amber-50/90 px-3.5 py-2.5 text-xs text-amber-900 shadow-sm">
+                  <div>
+                    <span className="font-semibold text-amber-800">Testing OTP (Server Preview):</span>
+                    <p className="font-mono text-base font-extrabold tracking-widest text-amber-950">{devOtp}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtp(devOtp);
+                    }}
+                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow hover:bg-amber-700 transition cursor-pointer"
+                  >
+                    Auto Fill
+                  </button>
+                </div>
+              )}
+
+              <OtpInput value={otp} onComplete={setOtp} />
               {errors.otp && <p className="mt-2 text-xs font-medium text-rose">{errors.otp}</p>}
               <div className="mt-5 flex items-center justify-center gap-1.5 text-[13px] text-sub">
                 {countdown > 0 ? (
@@ -918,9 +984,17 @@ export default function AuthFlow() {
                 ) : (
                   <button
                     className="font-bold text-navy"
-                    onClick={() => {
+                    onClick={async () => {
                       setCountdown(30);
-                      toast("OTP resent (demo: any 6 digits)");
+                      const res = await api.resendOtp(reg.email);
+                      if (res.success) {
+                        if (res.data?.previewOtpForDev) {
+                          setDevOtp(res.data.previewOtpForDev);
+                        }
+                        toast(`New OTP generated for ${reg.email}!`);
+                      } else {
+                        toast(res.error || "Failed to resend OTP");
+                      }
                     }}
                   >
                     Resend OTP

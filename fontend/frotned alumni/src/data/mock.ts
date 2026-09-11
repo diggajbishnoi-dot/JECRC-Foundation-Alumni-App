@@ -113,7 +113,7 @@ export const threads: Thread[] = [
   { id: "t3", title: "How I switched from services to product in 8 months", category: "Career", author: "Meera Nair", authorRole: "alumni", upvotes: 74, ago: "1d", body: "Infosys Jaipur → Deloitte Consulting. The honest playbook: what I studied, what I skipped, and the internal-switch tactic nobody talks about.", replies: [
     { id: "r6", author: "Kabir Rathore", text: "The internal-switch point is so real. Did the same back in 2017.", ago: "20h", upvotes: 8 },
   ] },
-  { id: "t4", title: "Alumni Meet — volunteer signups are OPEN", category: "Events", author: "JECRC Foundation", authorRole: "alumni", upvotes: 210, ago: "2d", body: "24–25 January, on campus. We need alumni volunteers for registration desks, chapter meets, and the mentorship lounge. First 50 volunteers get the limited edition kit.", replies: [
+  { id: "t4", title: "Alumni Meet — volunteer signups are OPEN", category: "Events", author: "JECRC Foundation", authorRole: "alumni", upvotes: 210, ago: "2d", body: "Upcoming on Jaipur campus. We need alumni volunteers for registration desks, chapter meets, and the mentorship lounge. First 50 volunteers get the limited edition kit.", replies: [
     { id: "r7", author: "Priya Verma", text: "Signed up for the mentorship lounge. Flying in from Hyderabad!", ago: "1d", upvotes: 33 },
     { id: "r8", author: "Devansh Pareek", text: "Count me in for the ECE chapter meet.", ago: "1d", upvotes: 18 },
   ] },
@@ -139,7 +139,7 @@ export const notifs: Notif[] = [
   { id: "n2", group: "Today", title: "2 new jobs match your branch (CSE)", body: "SDE-1 at Amazon · QA Intern at Paytm", icon: "job", read: false, ago: "1h" },
   { id: "n3", group: "Today", title: "Priya Verma replied to your message", body: "That timeline works. Let's set up a call…", icon: "chat", read: true, ago: "3h" },
   { id: "n4", group: "This Week", title: "Mentorship request update", body: "Sneha Khandelwal accepted your request", icon: "mentor", read: false, ago: "1d" },
-  { id: "n5", group: "This Week", title: "Alumni Meet — early bird ends Sunday", body: "Reserve your seat for 24–25 Jan on campus", icon: "event", read: true, ago: "2d" },
+  { id: "n5", group: "This Week", title: "Alumni Meet — Registrations opening soon", body: "Annual Alumni Meet coming soon on campus", icon: "event", read: true, ago: "2d" },
   { id: "n6", group: "This Week", title: "You're invited to Startup Circle", body: "Kabir Rathore invited you to join", icon: "group", read: true, ago: "3d" },
   { id: "n7", group: "Earlier", title: "12 alumni viewed your profile", body: "Profiles with a bio get 3× more views", icon: "connect", read: true, ago: "1w" },
   { id: "n8", group: "Earlier", title: "Your post got 34 upvotes", body: '"Tips for the mentorship lounge" is trending', icon: "chat", read: true, ago: "2w" },

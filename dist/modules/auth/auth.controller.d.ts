@@ -5,8 +5,11 @@ export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
     register(dto: RegisterDto): Promise<{
-        userId: string;
-        channel: "EMAIL" | "SMS";
+        message: string;
+        previewOtpForDev: string;
+    } | {
+        userId: any;
+        channel: "SMS" | "EMAIL";
         destination: string;
         message: string;
         previewOtpForDev: string;
@@ -70,7 +73,7 @@ export declare class AuthController {
     claimSendOtp(dto: ClaimSendOtpDto): Promise<{
         success: boolean;
         destination: string;
-        channel: "EMAIL" | "SMS";
+        channel: "SMS" | "EMAIL";
         message: string;
         previewOtpForDev: string;
     }>;

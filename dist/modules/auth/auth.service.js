@@ -28,30 +28,40 @@ let AuthService = AuthService_1 = class AuthService {
         this.redisService = redisService;
         this.logger = new common_1.Logger(AuthService_1.name);
     }
+    async runInTx(fn) {
+        if (this.prisma.isMock) {
+            return await fn(this.prisma);
+        }
+        return await this.prisma.$transaction(fn);
+    }
+    async runTxArray(actions) {
+        if (this.prisma.isMock) {
+            return await Promise.all(actions);
+        }
+        return await this.prisma.$transaction(actions);
+    }
     async register(dto) {
         if (!dto.email && !dto.mobile) {
             throw new common_1.BadRequestException('At least one of email or mobile number must be provided');
         }
-        if (dto.email) {
-            const existingEmail = await this.prisma.user.findUnique({
-                where: { email: dto.email },
-            });
-            if (existingEmail) {
-                throw new common_1.ConflictException('An account with this email already exists');
-            }
-        }
-        if (dto.mobile) {
-            const existingMobile = await this.prisma.user.findUnique({
-                where: { mobile: dto.mobile },
-            });
-            if (existingMobile) {
-                throw new common_1.ConflictException('An account with this mobile number already exists');
-            }
-        }
-        const passwordHash = await bcrypt.hash(dto.password, 10);
         const channel = dto.mobile ? client_1.OtpChannel.SMS : client_1.OtpChannel.EMAIL;
         const destination = dto.mobile || dto.email;
-        const user = await this.prisma.$transaction(async (tx) => {
+        const existingUser = await this.prisma.user.findFirst({
+            where: {
+                OR: [
+                    ...(dto.email ? [{ email: dto.email }] : []),
+                    ...(dto.mobile ? [{ mobile: dto.mobile }] : []),
+                ],
+            },
+        });
+        if (existingUser) {
+            if (existingUser.isVerified) {
+                throw new common_1.ConflictException('An account with this email or mobile number already exists.');
+            }
+            return await this.resendOtp({ emailOrMobile: destination });
+        }
+        const passwordHash = await bcrypt.hash(dto.password, 10);
+        const user = await this.runInTx(async (tx) => {
             const newUser = await tx.user.create({
                 data: {
                     name: dto.name,
@@ -67,9 +77,9 @@ let AuthService = AuthService_1 = class AuthService {
                 await tx.studentDetails.create({
                     data: {
                         userId: newUser.id,
-                        branch: dto.branch,
-                        currentYear: dto.currentYear,
-                        expectedPassoutYear: dto.expectedPassoutYear,
+                        branch: dto.branch || 'CSE',
+                        currentYear: dto.currentYear || 3,
+                        expectedPassoutYear: dto.expectedPassoutYear || 2028,
                     },
                 });
             }
@@ -78,10 +88,10 @@ let AuthService = AuthService_1 = class AuthService {
                     data: {
                         userId: newUser.id,
                         branch: dto.alumniBranch || dto.branch || 'General',
-                        batch: dto.batch,
-                        passoutYear: dto.passoutYear,
-                        currentCompany: dto.currentCompany,
-                        designation: dto.designation,
+                        batch: dto.batch || '2020',
+                        passoutYear: dto.passoutYear || 2020,
+                        currentCompany: dto.currentCompany || 'JECRC Alumni',
+                        designation: dto.designation || 'Alumnus',
                     },
                 });
             }
@@ -123,7 +133,7 @@ let AuthService = AuthService_1 = class AuthService {
         if (!isValid) {
             throw new common_1.BadRequestException('Invalid OTP entered');
         }
-        const [updatedUser] = await this.prisma.$transaction([
+        const [updatedUser] = await this.runTxArray([
             this.prisma.user.update({
                 where: { id: user.id },
                 data: { isVerified: true },
@@ -261,7 +271,7 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.BadRequestException('Invalid OTP code');
         }
         const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
-        await this.prisma.$transaction([
+        await this.runTxArray([
             this.prisma.user.update({
                 where: { id: user.id },
                 data: {
@@ -368,7 +378,7 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.BadRequestException('Invalid activation OTP code');
         }
         const passwordHash = await bcrypt.hash(dto.newPassword, 10);
-        const [updatedUser] = await this.prisma.$transaction([
+        const [updatedUser] = await this.runTxArray([
             this.prisma.user.update({
                 where: { id: user.id },
                 data: {

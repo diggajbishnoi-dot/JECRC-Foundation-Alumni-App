@@ -279,7 +279,6 @@ function PhoneShell() {
       </AnimatePresence>
 
       <Toasts />
-      <div className="pointer-events-none absolute bottom-1.5 left-1/2 z-[90] h-[4px] w-32 -translate-x-1/2 rounded-full bg-ink/15" />
     </div>
   );
 }

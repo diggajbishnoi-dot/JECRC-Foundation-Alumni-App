@@ -15,8 +15,9 @@ import {
   HeartHandshake,
   Settings,
 } from "lucide-react";
-import { useStore, personById } from "../state/store";
+import { useStore, personById, registerDynamicUser } from "../state/store";
 import { people, Person } from "../data/mock";
+import { api } from "../services/api";
 import { Btn, EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Tag } from "../components/ui";
 import { cn } from "../utils/cn";
 
@@ -26,6 +27,7 @@ export function DirectoryScreen() {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [loading, setLoading] = useState(true);
+  const [backendUsers, setBackendUsers] = useState<Person[]>([]);
   const [filterSheet, setFilterSheet] = useState<"batch" | "branch" | "company" | "city" | null>(null);
   const [filters, setFilters] = useState<{ batch?: string; branch?: string; company?: string; city?: string }>({});
 
@@ -39,9 +41,48 @@ export function DirectoryScreen() {
     return () => clearTimeout(t);
   }, []);
 
+  // Fetch real users from backend when token is available or query changes
+  useEffect(() => {
+    if (api.getToken()) {
+      api.searchUsers(debounced).then((res) => {
+        if (res.success && Array.isArray(res.data?.items)) {
+          const mapped: Person[] = res.data.items.map((u: any) => {
+            const mappedPerson: Person = {
+              id: u.id,
+              name: u.name,
+              role: (u.role?.toLowerCase() as any) || "alumni",
+              headline: u.alumniDetails?.designation
+                ? `${u.alumniDetails.designation} @ ${u.alumniDetails.currentCompany || "Enterprise"}`
+                : `${u.role === "ALUMNI" ? "Alumnus" : "Student"} · JECRC`,
+              branch: u.alumniDetails?.branch || u.studentDetails?.branch || "General",
+              batch: u.alumniDetails?.batch || "2020",
+              company: u.alumniDetails?.currentCompany,
+              city: u.city || "Jaipur",
+              about: u.bio || "JECRC Community Member",
+              color: u.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
+            };
+            registerDynamicUser(mappedPerson);
+            return mappedPerson;
+          });
+          setBackendUsers(mapped);
+        }
+      });
+    }
+  }, [debounced]);
+
+  const allDirectoryPeople = useMemo(() => {
+    const combined = [...backendUsers];
+    people.forEach((p) => {
+      if (!combined.some((b) => b.id === p.id || b.name.toLowerCase() === p.name.toLowerCase())) {
+        combined.push(p);
+      }
+    });
+    return combined;
+  }, [backendUsers]);
+
   const results = useMemo(() => {
     const q = debounced.trim().toLowerCase();
-    return people.filter((p) => {
+    return allDirectoryPeople.filter((p) => {
       const matchQ =
         !q ||
         p.name.toLowerCase().includes(q) ||
@@ -53,7 +94,7 @@ export function DirectoryScreen() {
       const matchCity = !filters.city || p.city === filters.city;
       return matchQ && matchB && matchBr && matchC && matchCity;
     });
-  }, [debounced, filters]);
+  }, [debounced, filters, allDirectoryPeople]);
 
   const chipData: { id: "batch" | "branch" | "company" | "city"; label: string; active?: string }[] = [
     { id: "branch", label: "Branch", active: filters.branch },
@@ -403,13 +444,13 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
             </div>
 
             {/* Profile body */}
-            <div className="px-5 pb-5">
-              <div className="-mt-12 mb-3 flex items-end justify-between">
+            <div className="relative z-10 px-5 pb-5">
+              <div className="relative z-20 -mt-12 mb-3 flex items-end justify-between">
                 <InitialsAvatar
                   name={p.name}
                   size={76}
                   layoutId={isMe ? undefined : `av-${p.id}`}
-                  className="ring-4 ring-white shadow-md bg-white shrink-0 rounded-full"
+                  className="relative z-20 ring-4 ring-white shadow-md bg-white shrink-0 rounded-full"
                 />
                 {p.mentor && (
                   <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-gold-100 px-3 py-1 text-[11.5px] font-bold text-gold-600">

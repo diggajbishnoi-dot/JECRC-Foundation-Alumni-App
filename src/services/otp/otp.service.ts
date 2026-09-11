@@ -64,9 +64,48 @@ export class OtpService {
   }
 
   private async sendEmailOtp(email: string, otp: string): Promise<void> {
-    const provider = this.configService.get<string>('EMAIL_PROVIDER', 'SMTP');
-    this.logger.log(`[EMAIL DISPATCH] Provider=${provider} Sending OTP [${otp}] to ${email}`);
-    // In production with real credentials, nodemailer sends actual email here.
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
+    const emailFrom = this.configService.get<string>('EMAIL_FROM', 'onboarding@resend.dev');
+
+    this.logger.log(`[EMAIL DISPATCH] Sending OTP [${otp}] to ${email}`);
+
+    if (resendApiKey) {
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: emailFrom,
+            to: [email],
+            subject: `${otp} is your JECRC Alumni verification code`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #E6EAF3; border-radius: 12px;">
+                <h2 style="color: #0F2A5E; margin-bottom: 8px;">JECRC Foundation</h2>
+                <p style="color: #555; font-size: 14px;">Your one-time verification code for the Alumni Network is:</p>
+                <div style="background: #F4F6FB; border-radius: 8px; padding: 16px; text-align: center; margin: 20px 0;">
+                  <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #0F2A5E;">${otp}</span>
+                </div>
+                <p style="color: #888; font-size: 12px;">This code is valid for 10 minutes. If you did not request this, please ignore this email.</p>
+              </div>
+            `,
+          }),
+        });
+
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          this.logger.error(`[RESEND ERROR] Failed to send email: ${JSON.stringify(data)}`);
+        } else {
+          this.logger.log(`[RESEND SUCCESS] Email dispatched successfully: ID=${data?.id}`);
+        }
+      } catch (err: any) {
+        this.logger.error(`[RESEND EXCEPTION] ${err.message}`);
+      }
+    } else {
+      this.logger.warn('[RESEND SKIPPED] No RESEND_API_KEY configured in environment variables.');
+    }
   }
 
   private async sendSmsOtp(mobile: string, otp: string): Promise<void> {

@@ -91,6 +91,15 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
             sender: { collection: 'users', foreignKey: 'senderId', single: true },
             receiver: { collection: 'users', foreignKey: 'receiverId', single: true },
         });
+        this.$transaction = async (arg) => {
+            if (typeof arg === 'function') {
+                return await arg(this);
+            }
+            if (Array.isArray(arg)) {
+                return await Promise.all(arg);
+            }
+            return arg;
+        };
     }
     async onModuleDestroy() {
         if (!this.isMock) {

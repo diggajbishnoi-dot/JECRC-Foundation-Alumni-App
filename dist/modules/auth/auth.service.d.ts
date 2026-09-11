@@ -13,9 +13,14 @@ export declare class AuthService {
     private readonly redisService;
     private readonly logger;
     constructor(prisma: PrismaService, jwtService: JwtService, configService: ConfigService, otpService: OtpService, redisService: RedisService);
+    private runInTx;
+    private runTxArray;
     register(dto: RegisterDto): Promise<{
-        userId: string;
-        channel: "EMAIL" | "SMS";
+        message: string;
+        previewOtpForDev: string;
+    } | {
+        userId: any;
+        channel: "SMS" | "EMAIL";
         destination: string;
         message: string;
         previewOtpForDev: string;
@@ -79,7 +84,7 @@ export declare class AuthService {
     claimSendOtp(userId: string): Promise<{
         success: boolean;
         destination: string;
-        channel: "EMAIL" | "SMS";
+        channel: "SMS" | "EMAIL";
         message: string;
         previewOtpForDev: string;
     }>;

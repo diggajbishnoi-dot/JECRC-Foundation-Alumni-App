@@ -102,31 +102,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [tab, setTab] = useState<Tab>("home");
   const [stack, setStack] = useState<Route[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [conn, setConn] = useState<Record<string, "none" | "pending" | "connected">>({
-    p1: "connected", p2: "connected", p3: "pending", p7: "connected",
-  });
-  const [received, setReceived] = useState<string[]>(["p9", "p10"]);
-  const [sent, setSent] = useState<string[]>(["p3"]);
+  const [conn, setConn] = useState<Record<string, "none" | "pending" | "connected">>({});
+  const [received, setReceived] = useState<string[]>([]);
+  const [sent, setSent] = useState<string[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [typing, setTyping] = useState<Record<string, boolean>>({});
-  const [allJobs, setAllJobs] = useState<Job[]>(seedJobs);
-  const [allThreads, setAllThreads] = useState<Thread[]>(seedThreads);
-  const [upvoted, setUpvoted] = useState<Set<string>>(new Set(["t4"]));
-  const [joined, setJoined] = useState<Set<string>>(new Set(["g1", "g5"]));
-  const [mentorReq, setMentorReq] = useState<Record<string, "none" | "pending" | "active">>({ p4: "active" });
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [allThreads, setAllThreads] = useState<Thread[]>([]);
+  const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
+  const [joined, setJoined] = useState<Set<string>>(new Set());
+  const [mentorReq, setMentorReq] = useState<Record<string, "none" | "pending" | "active">>({});
   const [mentorOptIn, setMentorOptIn] = useState(false);
-  const [notifList, setNotifList] = useState<Notif[]>(seedNotifs);
+  const [notifList, setNotifList] = useState<Notif[]>([
+    {
+      id: "n-welcome",
+      group: "Today",
+      title: "Welcome to JECRC Alumni Network",
+      body: "Your profile is active. Connect with fellow members and explore opportunities.",
+      icon: "event",
+      read: true,
+      ago: "Just now",
+    },
+  ]);
 
-  const [chats, setChats] = useState<Chat[]>(() =>
-    seedChats.map((c) => ({
-      id: `c_${c.userId}`,
-      userId: c.userId,
-      online: c.online,
-      unread: c.unread,
-      locked: c.locked,
-      msgs: c.msgs.map((m: SeedMsg) => ({ ...m, kind: "text" as const })),
-    }))
-  );
+  const [chats, setChats] = useState<Chat[]>([]);
 
   const timers = useRef<number[]>([]);
   const activeChatRef = useRef<string | null>(null);
@@ -140,6 +139,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Sync state with Backend API
   useEffect(() => {
+    // 0. Sync Current User from Token if previously logged in
+    if (api.getToken()) {
+      api.getMe().then((res) => {
+        if (res.success && res.data) {
+          const u = res.data;
+          const uRole = (u.role?.toLowerCase() as Role) || "alumni";
+          setRole(uRole);
+          setMe({
+            id: u.id,
+            name: u.name,
+            role: uRole,
+            branch: u.alumniDetails?.branch || u.studentDetails?.branch || "CSE",
+            batch: u.alumniDetails?.batch || "2020",
+            company: u.alumniDetails?.currentCompany,
+            city: u.city || "Jaipur",
+            about: u.bio || "JECRC Alumni Network Member",
+            color: uRole === "alumni" ? "#0F2A5E" : "#2563EB",
+            headline: u.alumniDetails?.designation
+              ? `${u.alumniDetails.designation} @ ${u.alumniDetails.currentCompany || "JECRC"}`
+              : `${uRole === "alumni" ? "Alumnus" : "Student"} · JECRC Foundation`,
+          });
+          setPhase("app");
+        }
+      });
+      // Sync real connections
+      api.getConnections().then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          const connMap: Record<string, "none" | "pending" | "connected"> = {};
+          res.data.forEach((c: any) => {
+            const otherId = c.receiverId === me.id ? c.senderId : c.receiverId;
+            if (c.status === "ACCEPTED") {
+              connMap[otherId] = "connected";
+            } else if (c.status === "PENDING") {
+              connMap[otherId] = "pending";
+            }
+          });
+          setConn(connMap);
+        }
+      });
+    }
+
     // 1. Sync Jobs / Posts
     api.getPosts().then((res) => {
       if (res.success && Array.isArray(res.data?.items)) {
@@ -213,17 +253,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (userId: string) => {
       setConn((c) => ({ ...c, [userId]: "pending" }));
       setSent((s) => (s.includes(userId) ? s : [...s, userId]));
-      toast("Connection request sent to backend");
+      toast("Connection request sent");
       api.requestConnection(userId).catch(() => {});
-      // demo: auto-accept after a while
-      window.setTimeout(() => {
-        setConn((c) => (c[userId] === "pending" ? { ...c, [userId]: "connected" } : c));
-        setSent((s) => s.filter((x) => x !== userId));
-        unlockChat(userId);
-        toast(`${people.find((p) => p.id === userId)?.name ?? "They"} accepted your request — chat unlocked`);
-      }, 6000);
     },
-    [toast, unlockChat]
+    [toast]
   );
 
   const acceptConn = useCallback(
@@ -231,13 +264,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setConn((c) => ({ ...c, [userId]: "connected" }));
       setReceived((r) => r.filter((x) => x !== userId));
       unlockChat(userId);
-      toast("Connection accepted — chat unlocked");
+      toast("Connected! Chat unlocked");
     },
     [toast, unlockChat]
   );
 
   const rejectConn = useCallback(
     (userId: string) => {
+      setConn((c) => ({ ...c, [userId]: "none" }));
       setReceived((r) => r.filter((x) => x !== userId));
       toast("Request declined");
     },
@@ -256,32 +290,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : c
         )
       );
-      // delivered
+      // mark as delivered
       const t1 = window.setTimeout(() => {
-        setChats((cs) => cs.map((c) => (c.id === chatId ? { ...c, msgs: c.msgs.map((m) => (m.id === id ? { ...m, status: "delivered" } : m)) } : c)));
-      }, 700);
-      // typing then reply then read
-      const t2 = window.setTimeout(() => setTyping((t) => ({ ...t, [chatId]: true })), 1300);
-      const t3 = window.setTimeout(() => {
-        setTyping((t) => ({ ...t, [chatId]: false }));
-        const reply = repliesPool[Math.floor(Math.random() * repliesPool.length)];
-        const rid = `r_${Date.now()}`;
         setChats((cs) =>
           cs.map((c) =>
             c.id === chatId
-              ? {
-                  ...c,
-                  unread: activeChatRef.current === chatId ? 0 : c.unread + 1,
-                  msgs: [
-                    ...c.msgs.map((m) => (m.fromMe ? { ...m, status: "read" as const } : m)),
-                    { id: rid, fromMe: false, kind: "text", text: reply, time: nowTime(), status: "read" },
-                  ],
-                }
+              ? { ...c, msgs: c.msgs.map((m) => (m.id === id ? { ...m, status: "delivered" } : m)) }
               : c
           )
         );
-      }, 3200);
-      timers.current.push(t1, t2, t3);
+      }, 500);
+      timers.current.push(t1);
     },
     [chats]
   );
@@ -333,15 +352,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const requestMentor = useCallback(
     (pid: string) => {
       setMentorReq((m) => ({ ...m, [pid]: "pending" }));
-      toast("Mentorship request sent to backend");
+      toast("Mentorship request sent to mentor");
       api.requestMentorship(pid).catch(() => {});
-      window.setTimeout(() => {
-        setMentorReq((m) => (m[pid] === "pending" ? { ...m, [pid]: "active" } : m));
-        unlockChat(pid);
-        toast(`${people.find((p) => p.id === pid)?.name ?? "Mentor"} accepted — chat unlocked`);
-      }, 8000);
     },
-    [toast, unlockChat]
+    [toast]
   );
 
   const addJob = useCallback((j: Job) => {
@@ -367,6 +381,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    api.setToken(null);
     clearStack();
     setTab("home");
     setPhase("auth");
@@ -427,5 +442,13 @@ export function useStore() {
   return s;
 }
 
-export const personById = (id: string): Person => people.find((p) => p.id === id) ?? people[0];
+const dynamicUserMap = new Map<string, Person>();
+export const registerDynamicUser = (p: Person) => {
+  dynamicUserMap.set(p.id, p);
+};
+
+export const personById = (id: string): Person => {
+  return dynamicUserMap.get(id) || people.find((p) => p.id === id) || people[0];
+};
+
 export const allGroups = seedGroups;

@@ -36,6 +36,20 @@ export class AuthService {
     private readonly redisService: RedisService,
   ) {}
 
+  private async runInTx<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+    if (this.prisma.isMock) {
+      return await fn(this.prisma);
+    }
+    return await this.prisma.$transaction(fn);
+  }
+
+  private async runTxArray(actions: any[]): Promise<any[]> {
+    if (this.prisma.isMock) {
+      return await Promise.all(actions);
+    }
+    return await this.prisma.$transaction(actions as any);
+  }
+
   /**
    * Register a new Student or Alumni
    * Sends a one-time OTP to Email or Mobile
@@ -45,33 +59,33 @@ export class AuthService {
       throw new BadRequestException('At least one of email or mobile number must be provided');
     }
 
-    // Check existing users
-    if (dto.email) {
-      const existingEmail = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
-      if (existingEmail) {
-        throw new ConflictException('An account with this email already exists');
-      }
-    }
+    const channel = dto.mobile ? OtpChannel.SMS : OtpChannel.EMAIL;
+    const destination = dto.mobile || dto.email!;
 
-    if (dto.mobile) {
-      const existingMobile = await this.prisma.user.findUnique({
-        where: { mobile: dto.mobile },
-      });
-      if (existingMobile) {
-        throw new ConflictException('An account with this mobile number already exists');
+    // Check existing users
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(dto.email ? [{ email: dto.email }] : []),
+          ...(dto.mobile ? [{ mobile: dto.mobile }] : []),
+        ],
+      },
+    });
+
+    if (existingUser) {
+      if (existingUser.isVerified) {
+        throw new ConflictException(
+          'An account with this email or mobile number already exists.',
+        );
       }
+      // If unverified, resend OTP rather than error out
+      return await this.resendOtp({ emailOrMobile: destination });
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    // Determine OTP delivery channel: prefer mobile SMS if provided, else Email
-    const channel = dto.mobile ? OtpChannel.SMS : OtpChannel.EMAIL;
-    const destination = dto.mobile || dto.email!;
-
     // Create user and details in a transaction
-    const user = await this.prisma.$transaction(async (tx) => {
+    const user = await this.runInTx(async (tx) => {
       const newUser = await tx.user.create({
         data: {
           name: dto.name,
@@ -88,9 +102,9 @@ export class AuthService {
         await tx.studentDetails.create({
           data: {
             userId: newUser.id,
-            branch: dto.branch!,
-            currentYear: dto.currentYear!,
-            expectedPassoutYear: dto.expectedPassoutYear!,
+            branch: dto.branch || 'CSE',
+            currentYear: dto.currentYear || 3,
+            expectedPassoutYear: dto.expectedPassoutYear || 2028,
           },
         });
       } else if (dto.role === Role.ALUMNI) {
@@ -98,10 +112,10 @@ export class AuthService {
           data: {
             userId: newUser.id,
             branch: dto.alumniBranch || dto.branch || 'General',
-            batch: dto.batch!,
-            passoutYear: dto.passoutYear!,
-            currentCompany: dto.currentCompany!,
-            designation: dto.designation!,
+            batch: dto.batch || '2020',
+            passoutYear: dto.passoutYear || 2020,
+            currentCompany: dto.currentCompany || 'JECRC Alumni',
+            designation: dto.designation || 'Alumnus',
           },
         });
       }
@@ -159,7 +173,7 @@ export class AuthService {
     }
 
     // Mark user verified and remove OTP record
-    const [updatedUser] = await this.prisma.$transaction([
+    const [updatedUser] = await this.runTxArray([
       this.prisma.user.update({
         where: { id: user.id },
         data: { isVerified: true },
@@ -353,7 +367,7 @@ export class AuthService {
 
     const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
 
-    await this.prisma.$transaction([
+    await this.runTxArray([
       this.prisma.user.update({
         where: { id: user.id },
         data: {
@@ -484,7 +498,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
 
-    const [updatedUser] = await this.prisma.$transaction([
+    const [updatedUser] = await this.runTxArray([
       this.prisma.user.update({
         where: { id: user.id },
         data: {

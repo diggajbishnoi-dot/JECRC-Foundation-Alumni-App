@@ -299,8 +299,8 @@ export function GroupDetailScreen({ id }: { id: string }) {
           <div className="flex h-20 items-end bg-gradient-to-br from-navy-800 to-peri p-4">
             <Tag tone="gold">{g.tag}</Tag>
           </div>
-          <div className="p-4">
-            <div className="-mt-10 mb-2"><InitialsAvatar name={g.name} size={64} rounded="rounded-2xl" className="ring-4 ring-white" /></div>
+          <div className="relative z-10 p-4">
+            <div className="relative z-20 -mt-10 mb-2"><InitialsAvatar name={g.name} size={64} rounded="rounded-2xl" className="ring-4 ring-white shadow-sm" /></div>
             <h2 className="font-display text-[19px] font-bold text-ink">{g.name}</h2>
             <p className="mt-1 text-[12.5px] text-sub">{g.members + (isJoined ? 1 : 0)} members</p>
             <p className="mt-2.5 text-[13.5px] leading-relaxed text-ink/80">{g.desc}</p>

@@ -69,22 +69,43 @@ class ApiService {
     return res;
   }
 
-  async register(data: { name: string; email?: string; mobile?: string; password: string; role: 'STUDENT' | 'ALUMNI'; branch: string; batch?: string; currentCompany?: string; designation?: string; currentYear?: number }) {
+  async register(data: {
+    name: string;
+    email?: string;
+    mobile?: string;
+    password: string;
+    role: 'STUDENT' | 'ALUMNI';
+    branch: string;
+    batch?: string;
+    currentCompany?: string;
+    designation?: string;
+    currentYear?: number;
+    expectedPassoutYear?: number;
+    alumniBranch?: string;
+    passoutYear?: number;
+  }) {
     return await this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async verifyOtp(userId: string, otpCode: string) {
+  async verifyOtp(emailOrMobile: string, otp: string) {
     const res = await this.request<{ user: any; tokens: { accessToken: string; refreshToken: string } }>('/auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ userId, otpCode }),
+      body: JSON.stringify({ emailOrMobile, otp }),
     });
     if (res.success && res.data?.tokens?.accessToken) {
       this.setToken(res.data.tokens.accessToken);
     }
     return res;
+  }
+
+  async resendOtp(emailOrMobile: string) {
+    return await this.request<{ previewOtpForDev?: string }>('/auth/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ emailOrMobile }),
+    });
   }
 
   async getMe() {

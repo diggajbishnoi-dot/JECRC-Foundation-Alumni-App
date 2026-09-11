@@ -37,9 +37,9 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterDto.prototype, "mobile", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'StrongP@ssw0rd!', minLength: 8 }),
+    (0, swagger_1.ApiProperty)({ example: 'StrongP@ssw0rd!', minLength: 6 }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(8, { message: 'Password must be at least 8 characters long' }),
+    (0, class_validator_1.MinLength)(6, { message: 'Password must be at least 6 characters long' }),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "password", void 0);
 __decorate([
@@ -55,57 +55,49 @@ __decorate([
 ], RegisterDto.prototype, "publicKey", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Computer Science and Engineering' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.STUDENT),
-    (0, class_validator_1.IsNotEmpty)({ message: 'branch is required for students' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "branch", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 3, description: 'Current year of study (1-5)' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.STUDENT),
-    (0, class_validator_1.IsNotEmpty)({ message: 'currentYear is required for students' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
 ], RegisterDto.prototype, "currentYear", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 2027, description: 'Expected graduation year' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.STUDENT),
-    (0, class_validator_1.IsNotEmpty)({ message: 'expectedPassoutYear is required for students' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
 ], RegisterDto.prototype, "expectedPassoutYear", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Electrical Engineering' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.ALUMNI),
-    (0, class_validator_1.IsNotEmpty)({ message: 'alumni branch is required' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "alumniBranch", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '2019-2023', description: 'Batch name or year span' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.ALUMNI),
-    (0, class_validator_1.IsNotEmpty)({ message: 'batch is required for alumni' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "batch", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 2023, description: 'Graduation passout year' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.ALUMNI),
-    (0, class_validator_1.IsNotEmpty)({ message: 'passoutYear is required for alumni' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
 ], RegisterDto.prototype, "passoutYear", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Google', description: 'Current employer' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.ALUMNI),
-    (0, class_validator_1.IsNotEmpty)({ message: 'currentCompany is required for alumni' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "currentCompany", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Senior Software Engineer', description: 'Job title' }),
-    (0, class_validator_1.ValidateIf)((o) => o.role === client_1.Role.ALUMNI),
-    (0, class_validator_1.IsNotEmpty)({ message: 'designation is required for alumni' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "designation", void 0);

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bell, Users, Briefcase, MessagesSquare, UsersRound, GraduationCap, Plus,
-  Clock, ChevronRight, TrendingUp, CalendarDays, Handshake, Inbox,
+  Clock, ChevronRight, TrendingUp, CalendarDays, Handshake, Inbox, MapPin,
 } from "lucide-react";
 import { useStore, personById, allGroups } from "../state/store";
 import { InitialsAvatar, ListSkeleton, Refreshable, SectionHeader, Tag } from "../components/ui";
@@ -46,25 +46,29 @@ function HomeHeader() {
 }
 
 function HeroBanner() {
-  const { toast } = useStore();
   return (
     <motion.div variants={item} className="mesh-navy relative mt-5 overflow-hidden rounded-[20px] p-5">
       <div className="hero-dots pointer-events-none absolute inset-0" />
       <div className="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-peri/25 blur-xl" />
       <div className="pointer-events-none absolute -bottom-16 right-16 h-32 w-32 rounded-full bg-gold/20 blur-xl" />
       <div className="flex items-start justify-between">
-        <Tag tone="gold"><CalendarDays size={11} /> 24–25 Jan · Jaipur Campus</Tag>
+        <Tag tone="gold"><MapPin size={11} /> Jaipur Campus</Tag>
         <JecrcLogo white className="h-7 w-auto max-w-[85px] object-contain opacity-85" />
       </div>
       <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug text-white">
-        Alumni <span className="text-gold">Meet</span>
+        Upcoming Alumni <span className="text-gold">Meet 2026</span>
       </h2>
-      <p className="mt-1 max-w-[250px] text-[12.5px] leading-relaxed text-white/65">
-        Chapter meets, mentorship lounge & the grand dinner. Early-bird seats fill fast.
+      <p className="mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-white/75">
+        Reunions, keynote panels, mentorship lounge & the grand campus dinner. See you soon!
       </p>
-      <button onClick={() => toast("Seat reserved — see you on campus!")} className="btn-press mt-4 rounded-lg bg-gold px-4 py-2.5 text-[13px] font-bold text-ink cursor-pointer">
-        Reserve my seat
-      </button>
+      <div className="mt-4 flex items-center gap-2.5">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/20 border border-gold/40 px-3.5 py-1.5 text-[12px] font-bold text-gold backdrop-blur-sm">
+          ✨ See you soon on campus!
+        </div>
+        <span className="text-[11px] font-medium text-white/60">
+          Passes opening soon
+        </span>
+      </div>
     </motion.div>
   );
 }
