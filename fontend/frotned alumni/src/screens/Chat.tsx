@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Lock, ShieldCheck, Camera, Image as ImageIcon, FileText, Send,
-  Check, CheckCheck, ChevronLeft, Phone, Video, Plus, MessageCircle, Download,
+  Check, CheckCheck, ChevronLeft, Plus, MessageCircle, Download,
 } from "lucide-react";
 import { useStore, personById, ChatMsg } from "../state/store";
 import { EmptyState, InitialsAvatar, ListSkeleton, Sheet, TypingDots } from "../components/ui";
@@ -253,8 +253,6 @@ export function ChatRoomScreen({ id }: { id: string }) {
             )}
           </AnimatePresence>
         </div>
-        <button className="btn-press flex h-10 w-10 items-center justify-center rounded-full text-white/85"><Phone size={18} /></button>
-        <button className="btn-press flex h-10 w-10 items-center justify-center rounded-full text-white/85"><Video size={19} /></button>
       </div>
 
       {/* messages */}
