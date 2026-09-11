@@ -713,7 +713,7 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                 className="input w-full"
               >
                 {p.role === "alumni"
-                  ? Array.from({ length: 22 }, (_, i) => `${2025 - i}`).map((y) => (
+                  ? Array.from({ length: 23 }, (_, i) => `${2026 - i}`).map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))
                   : ["2024", "2025", "2026", "2027", "2028", "2029", "2030"].map((y) => (

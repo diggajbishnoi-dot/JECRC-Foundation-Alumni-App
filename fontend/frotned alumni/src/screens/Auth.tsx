@@ -1111,7 +1111,7 @@ export default function AuthFlow() {
                           value={reg.batch}
                           onChange={(e) => up("batch", e.target.value)}
                         >
-                          {Array.from({ length: 16 }, (_, i) => `${2025 - i}`).map((y) => (
+                          {Array.from({ length: 23 }, (_, i) => `${2026 - i}`).map((y) => (
                             <option key={y}>{y}</option>
                           ))}
                         </select>
@@ -1123,7 +1123,7 @@ export default function AuthFlow() {
                           value={reg.batch}
                           onChange={(e) => up("batch", e.target.value)}
                         >
-                          {Array.from({ length: 16 }, (_, i) => `${2025 - i}`).map((y) => (
+                          {Array.from({ length: 23 }, (_, i) => `${2026 - i}`).map((y) => (
                             <option key={y}>{y}</option>
                           ))}
                         </select>
