@@ -12,7 +12,7 @@ export interface ChatMsg {
   fromMe: boolean;
   kind: "text" | "image" | "doc";
   text: string;
-  meta?: { name?: string; size?: string };
+  meta?: { name?: string; size?: string; url?: string };
   time: string;
   status: "sent" | "delivered" | "read";
   uploading?: boolean;
@@ -463,11 +463,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const d = new Date(m.createdAt);
             const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
             const isFromMe = m.senderId === currentUserId;
+            const content = m.encryptedContent || "";
+
+            let kind: "text" | "image" | "doc" = "text";
+            let meta: { name?: string; size?: string; url?: string } | undefined = undefined;
+
+            if (
+              content.startsWith("data:image/") ||
+              ((content.startsWith("http://") || content.startsWith("https://")) &&
+                (content.includes(".png") ||
+                  content.includes(".jpg") ||
+                  content.includes(".jpeg") ||
+                  content.includes(".webp")))
+            ) {
+              kind = "image";
+              meta = { name: "Photo", url: content };
+            } else if (content.startsWith("[Photo:") || content === "[Photo]") {
+              kind = "image";
+              const match = content.match(/\[Photo:\s*(.*?)\]/);
+              meta = { name: match ? match[1] : "Photo" };
+            } else if (content.startsWith("[Document:")) {
+              kind = "doc";
+              const match = content.match(/\[Document:\s*(.*?)\]/);
+              meta = { name: match ? match[1] : "Document.pdf", size: "Document" };
+            }
+
             return {
               id: m.id,
               fromMe: isFromMe,
-              kind: "text",
-              text: m.encryptedContent,
+              kind,
+              text: kind === "text" ? content : "",
+              meta,
               time,
               status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
             };
@@ -535,7 +561,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       );
 
       try {
-        const content = msg.text || (msg.kind === "image" ? "[Photo]" : `[Document: ${msg.meta?.name || "file"}]`);
+        let content = msg.text;
+        if (msg.kind === "image") {
+          // If image has dataUrl under 500KB send dataUrl directly, else send [Photo: name]
+          if (msg.meta?.url && msg.meta.url.length < 500000) {
+            content = msg.meta.url;
+          } else {
+            content = `[Photo: ${msg.meta?.name || "Photo"}]`;
+          }
+        } else if (msg.kind === "doc") {
+          content = `[Document: ${msg.meta?.name || "Document"}]`;
+        }
+
         const res = await api.sendMessage(chat.userId, content);
         if (res.success && res.data?.id) {
           setChats((cs) =>

@@ -5,7 +5,7 @@ import {
   Check, CheckCheck, ChevronLeft, Phone, Video, Plus, MessageCircle, Download,
 } from "lucide-react";
 import { useStore, personById, ChatMsg } from "../state/store";
-import { EmptyState, InitialsAvatar, ListSkeleton, Sheet, TypingDots, ProgressRing } from "../components/ui";
+import { EmptyState, InitialsAvatar, ListSkeleton, Sheet, TypingDots } from "../components/ui";
 import { api } from "../services/api";
 
 function Ticks({ status }: { status: ChatMsg["status"] }) {
@@ -134,9 +134,12 @@ export function ChatRoomScreen({ id }: { id: string }) {
   const p = personById(chat.userId);
   const [text, setText] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
-  const [uploaded, setUploaded] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const isTyping = typing[chat.id];
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (chat.userId) {
@@ -161,17 +164,68 @@ export function ChatRoomScreen({ id }: { id: string }) {
     setText("");
   };
 
-  const sendAttachment = (kind: "image" | "doc") => {
-    setAttachOpen(false);
-    const meta = kind === "doc" ? { name: "Resume_ArjunMehta.pdf", size: "1.2 MB" } : { name: "IMG_2041.jpg", size: "2.4 MB" };
-    sendChat(chat.id, { fromMe: true, kind, text: "", meta, uploading: true });
-    setTimeout(() => {
-      // mark upload finished
-    }, 1400);
+  const handleFilePicked = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "camera" | "gallery" | "doc"
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const sizeStr =
+      file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.round(file.size / 1024)} KB`;
+
+    if (type === "camera" || type === "gallery" || file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        sendChat(chat.id, {
+          fromMe: true,
+          kind: "image",
+          text: "",
+          meta: { name: file.name, size: sizeStr, url: dataUrl },
+        });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const ext = file.name.split(".").pop()?.toUpperCase() || "DOC";
+      sendChat(chat.id, {
+        fromMe: true,
+        kind: "doc",
+        text: "",
+        meta: { name: file.name, size: `${sizeStr} · ${ext}` },
+      });
+    }
+    e.target.value = "";
   };
 
   return (
     <div className="flex h-full flex-col bg-page">
+      {/* Hidden file inputs for Camera, Gallery, and Document picker */}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={cameraInputRef}
+        onChange={(e) => handleFilePicked(e, "camera")}
+        className="hidden"
+      />
+      <input
+        type="file"
+        accept="image/*"
+        ref={galleryInputRef}
+        onChange={(e) => handleFilePicked(e, "gallery")}
+        className="hidden"
+      />
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.zip"
+        ref={docInputRef}
+        onChange={(e) => handleFilePicked(e, "doc")}
+        className="hidden"
+      />
+
       {/* app bar */}
       <div className="mesh-navy z-20 flex items-center gap-2 px-3 pb-3 pt-2 text-white shadow-lg">
         <button onClick={pop} className="btn-press flex h-10 w-10 items-center justify-center rounded-full">
@@ -226,36 +280,39 @@ export function ChatRoomScreen({ id }: { id: string }) {
                     : "rounded-bl-md bg-white text-ink"
                 }`}
               >
-                {(() => { const uploading = m.uploading && !uploaded.has(m.id); return (<>
                 {m.kind === "image" && (
-                  <div className={`mb-1.5 flex h-36 w-44 items-center justify-center overflow-hidden rounded-xl ${m.fromMe ? "bg-navy-700" : "bg-page"}`}>
-                    {uploading ? (
-                      <ProgressRing onDone={() => setUploaded((s) => new Set(s).add(m.id))} />
+                  <div className={`mb-1.5 overflow-hidden rounded-xl ${m.fromMe ? "bg-navy-700" : "bg-page"}`}>
+                    {m.meta?.url ? (
+                      <img
+                        src={m.meta.url}
+                        alt={m.meta?.name || "Uploaded photo"}
+                        className="max-h-56 max-w-full rounded-xl object-contain"
+                      />
                     ) : (
-                      <div className="relative flex h-full w-full items-center justify-center bg-gradient-to-br from-peri to-navy-800">
+                      <div className="relative flex h-36 w-44 items-center justify-center bg-gradient-to-br from-peri to-navy-800 rounded-xl">
                         <Camera size={26} className="text-white/70" />
                       </div>
+                    )}
+                    {m.meta?.name && (
+                      <p className={`px-2 py-1 truncate text-[10.5px] ${m.fromMe ? "text-white/70" : "text-sub"}`}>
+                        {m.meta.name}
+                      </p>
                     )}
                   </div>
                 )}
                 {m.kind === "doc" && (
-                  <div className={`mb-1.5 flex w-48 items-center gap-2.5 rounded-xl p-2.5 ${m.fromMe ? "bg-navy-700" : "bg-page"}`}>
-                    {uploading ? (
-                      <ProgressRing onDone={() => setUploaded((s) => new Set(s).add(m.id))} />
-                    ) : (
-                      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${m.fromMe ? "bg-white/15 text-gold" : "bg-white text-navy shadow-sm"}`}>
-                        <FileText size={16} />
-                      </span>
-                    )}
+                  <div className={`mb-1.5 flex w-52 items-center gap-2.5 rounded-xl p-2.5 ${m.fromMe ? "bg-white/15 text-white" : "bg-page text-ink"}`}>
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${m.fromMe ? "bg-white/20 text-gold" : "bg-white text-navy shadow-sm"}`}>
+                      <FileText size={18} />
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className={`truncate text-[12px] font-bold ${m.fromMe ? "text-white" : "text-ink"}`}>{m.meta?.name}</p>
-                      <p className={`text-[10.5px] ${m.fromMe ? "text-white/60" : "text-sub"}`}>{m.meta?.size} · PDF</p>
+                      <p className={`truncate text-[12.5px] font-bold ${m.fromMe ? "text-white" : "text-ink"}`}>{m.meta?.name || "Document"}</p>
+                      <p className={`text-[10.5px] ${m.fromMe ? "text-white/60" : "text-sub"}`}>{m.meta?.size || "PDF"}</p>
                     </div>
-                    {!uploading && <Download size={15} className={m.fromMe ? "text-white/70" : "text-sub"} />}
+                    <Download size={15} className={m.fromMe ? "text-white/80 shrink-0" : "text-sub shrink-0"} />
                   </div>
                 )}
-                </>); })()}
-                {m.kind === "text" && <p className="text-[14px] leading-snug">{m.text}</p>}
+                {m.kind === "text" && <p className="text-[14px] leading-snug break-words">{m.text}</p>}
                 <div className={`mt-1 flex items-center justify-end gap-1 ${m.fromMe ? "" : "text-sub/60"}`}>
                   <span className={`text-[9.5px] font-medium ${m.fromMe ? "text-white/50" : ""}`}>{m.time}</span>
                   {m.fromMe && <Ticks status={m.status} />}
@@ -285,7 +342,7 @@ export function ChatRoomScreen({ id }: { id: string }) {
 
       {/* input */}
       <div className="z-20 flex items-end gap-2 bg-page px-3 pb-6 pt-2">
-        <button onClick={() => setAttachOpen(true)} className="btn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-navy shadow-sm">
+        <button onClick={() => setAttachOpen(true)} className="btn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-navy shadow-sm cursor-pointer">
           <Plus size={20} />
         </button>
         <div className="flex flex-1 items-center rounded-full bg-white py-1 pl-4 pr-1 shadow-sm">
@@ -300,21 +357,48 @@ export function ChatRoomScreen({ id }: { id: string }) {
         <motion.button
           whileTap={{ scale: 0.88 }}
           onClick={send}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-lg transition-colors ${text.trim() ? "bg-navy text-white" : "bg-white text-sub/50"}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-lg transition-colors cursor-pointer ${text.trim() ? "bg-navy text-white" : "bg-white text-sub/50"}`}
         >
           <Send size={18} className={text.trim() ? "translate-x-[1px]" : ""} />
         </motion.button>
       </div>
 
       {/* attachment sheet */}
-      <Sheet open={attachOpen} onClose={() => setAttachOpen(false)} title="Share">
+      <Sheet open={attachOpen} onClose={() => setAttachOpen(false)} title="Share Media">
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: Camera, label: "Camera", tint: "#FDE8ED", color: "#C94060", fn: () => sendAttachment("image") },
-            { icon: ImageIcon, label: "Gallery", tint: "#E3EAF7", color: "#0F2A5E", fn: () => sendAttachment("image") },
-            { icon: FileText, label: "Document", tint: "#FCF0DA", color: "#B87714", fn: () => sendAttachment("doc") },
+            {
+              icon: Camera,
+              label: "Camera",
+              tint: "#FDE8ED",
+              color: "#C94060",
+              fn: () => {
+                setAttachOpen(false);
+                cameraInputRef.current?.click();
+              },
+            },
+            {
+              icon: ImageIcon,
+              label: "Gallery",
+              tint: "#E3EAF7",
+              color: "#0F2A5E",
+              fn: () => {
+                setAttachOpen(false);
+                galleryInputRef.current?.click();
+              },
+            },
+            {
+              icon: FileText,
+              label: "Document",
+              tint: "#FCF0DA",
+              color: "#B87714",
+              fn: () => {
+                setAttachOpen(false);
+                docInputRef.current?.click();
+              },
+            },
           ].map((a) => (
-            <motion.button key={a.label} whileTap={{ scale: 0.93 }} onClick={a.fn} className="card flex flex-col items-center gap-2.5 py-5">
+            <motion.button key={a.label} whileTap={{ scale: 0.93 }} onClick={a.fn} className="card flex flex-col items-center gap-2.5 py-5 cursor-pointer">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: a.tint, color: a.color }}>
                 <a.icon size={21} />
               </span>
