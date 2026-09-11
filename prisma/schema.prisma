@@ -1,0 +1,335 @@
+// Prisma Schema for Alumni Networking App
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  ALUMNI
+  ADMIN
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum Platform {
+  IOS
+  ANDROID
+}
+
+enum PostType {
+  GENERAL
+  JOB
+  INTERNSHIP
+}
+
+enum MentorshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  ENDED
+}
+
+enum GroupType {
+  BATCH
+  INTEREST
+}
+
+enum GroupRole {
+  MEMBER
+  ADMIN
+}
+
+model User {
+  id               String            @id @default(uuid())
+  name             String
+  email            String?           @unique
+  mobile           String?           @unique
+  passwordHash     String
+  role             Role              @default(STUDENT)
+  isVerified       Boolean           @default(false)
+  profilePicUrl    String?
+  bio              String?
+  city             String?
+  publicKey        String?           // X25519 public key (E2E encryption)
+  refreshTokenHash String?
+  hideLastSeen     Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Relations
+  otpVerifications      OtpVerification[]
+  studentDetails        StudentDetails?
+  alumniDetails         AlumniDetails?
+  sentConnections       Connection[]          @relation("SentConnections")
+  receivedConnections   Connection[]          @relation("ReceivedConnections")
+  sentMessages          Message[]             @relation("SentMessages")
+  receivedMessages      Message[]             @relation("ReceivedMessages")
+  deviceTokens          DeviceToken[]
+  posts                 Post[]
+  discussionThreads     DiscussionThread[]
+  discussionReplies     DiscussionReply[]
+  discussionUpvotes     DiscussionUpvote[]
+  mentorProfile         MentorProfile?
+  sentMentorships       MentorshipRequest[]   @relation("StudentMentorships")
+  receivedMentorships   MentorshipRequest[]   @relation("MentorMentorships")
+  createdGroups         Group[]               @relation("CreatedGroups")
+  groupMemberships      GroupMembership[]
+  notifications         Notification[]
+
+  @@map("users")
+}
+
+model OtpVerification {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otpCodeHash String
+  channel     OtpChannel
+  expiresAt   DateTime
+  verifiedAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([userId])
+  @@map("otp_verifications")
+}
+
+model StudentDetails {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch              String
+  currentYear         Int
+  expectedPassoutYear Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("student_details")
+}
+
+model AlumniDetails {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch         String
+  batch          String
+  passoutYear    Int
+  currentCompany String
+  designation    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("alumni_details")
+}
+
+model Connection {
+  id          String           @id @default(uuid())
+  requesterId String
+  requester   User             @relation("SentConnections", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiverId  String
+  receiver    User             @relation("ReceivedConnections", fields: [receiverId], references: [id], onDelete: Cascade)
+  status      ConnectionStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([requesterId, receiverId])
+  @@index([requesterId])
+  @@index([receiverId])
+  @@map("connections")
+}
+
+model Message {
+  id               String        @id @default(uuid())
+  senderId         String
+  sender           User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId       String
+  receiver         User          @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  encryptedContent String        // CIPHERTEXT ONLY - server never stores plaintext!
+  nonce            String        // Initialization vector / nonce for decryption on client
+  status           MessageStatus @default(SENT)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, status])
+  @@map("messages")
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fcmToken  String
+  platform  Platform
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, fcmToken])
+  @@map("device_tokens")
+}
+
+model Post {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          PostType @default(GENERAL)
+  title         String
+  description   String
+  company       String?
+  location      String?
+  attachmentUrl String?
+  reportCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model DiscussionThread {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  category    String
+  groupId     String?
+  group       Group?            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  reportCount Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  replies     DiscussionReply[]
+  upvotes     DiscussionUpvote[]
+
+  @@index([category])
+  @@index([groupId])
+  @@index([createdAt])
+  @@map("discussion_threads")
+}
+
+model DiscussionReply {
+  id        String             @id @default(uuid())
+  threadId  String
+  thread    DiscussionThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  upvotes   DiscussionUpvote[]
+
+  @@index([threadId])
+  @@map("discussion_replies")
+}
+
+model DiscussionUpvote {
+  id       String            @id @default(uuid())
+  threadId String?
+  thread   DiscussionThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  replyId  String?
+  reply    DiscussionReply?  @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+
+  @@unique([userId, threadId])
+  @@unique([userId, replyId])
+  @@map("discussion_upvotes")
+}
+
+model MentorProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domains     String[] // e.g. ["Software Engineering", "AI/ML", "Product Management"]
+  bio         String?
+  availability String  // e.g. "2 sessions/month"
+  maxMentees  Int      @default(3)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mentor_profiles")
+}
+
+model MentorshipRequest {
+  id        String           @id @default(uuid())
+  studentId String
+  student   User             @relation("StudentMentorships", fields: [studentId], references: [id], onDelete: Cascade)
+  mentorId  String
+  mentor    User             @relation("MentorMentorships", fields: [mentorId], references: [id], onDelete: Cascade)
+  message   String
+  status    MentorshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([studentId])
+  @@index([mentorId])
+  @@map("mentorship_requests")
+}
+
+model Group {
+  id          String            @id @default(uuid())
+  name        String
+  type        GroupType         @default(INTEREST)
+  description String?
+  createdById String
+  createdBy   User              @relation("CreatedGroups", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  memberships GroupMembership[]
+  threads     DiscussionThread[]
+
+  @@index([type])
+  @@map("groups")
+}
+
+model GroupMembership {
+  id       String    @id @default(uuid())
+  groupId  String
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  @@unique([groupId, userId])
+  @@map("group_memberships")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // CONNECTION_REQUEST, CONNECTION_ACCEPTED, NEW_MESSAGE, etc.
+  payload   Json     // Additional metadata (senderId, targetId, etc.)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}

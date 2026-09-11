@@ -1,0 +1,67 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alumni_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://alumni_user:alumni_secure_password@postgres:5432/alumni_db?schema=public
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=alumni_super_secret_jwt_access_key_2026_x99
+      - JWT_REFRESH_SECRET=alumni_super_secret_jwt_refresh_key_2026_z88
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - alumni_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: alumni_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: alumni_user
+      POSTGRES_PASSWORD: alumni_secure_password
+      POSTGRES_DB: alumni_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alumni_user -d alumni_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alumni_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: alumni_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alumni_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  alumni_network:
+    driver: bridge
