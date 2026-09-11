@@ -16,8 +16,20 @@ export interface Person {
   mentees?: number;
 }
 
+export interface JobApplicant {
+  id: string;
+  studentId: string;
+  name: string;
+  email?: string;
+  branch: string;
+  batch: string;
+  appliedAt: string;
+  note?: string;
+}
+
 export interface Job {
   id: string;
+  posterId?: string;
   title: string;
   company: string;
   location: string;
@@ -32,6 +44,7 @@ export interface Job {
   branch: string;
   desc: string;
   mine?: boolean;
+  applicantList?: JobApplicant[];
 }
 
 export interface Thread {

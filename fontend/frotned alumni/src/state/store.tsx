@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Person, people, meAlumni, Job, Thread, Notif, groups as seedGroups } from "../data/mock";
+import { Person, people, meAlumni, Job, JobApplicant, Thread, Notif, groups as seedGroups } from "../data/mock";
 import { api } from "../services/api";
 
 export type Role = "student" | "alumni";
@@ -76,6 +76,8 @@ interface Store {
   // jobs
   allJobs: Job[];
   addJob: (j: Job) => void;
+  applyJob: (jobId: string, note?: string) => Promise<void>;
+  appliedJobIds: Set<string>;
   // discussions
   allThreads: Thread[];
   upvoted: Set<string>;
@@ -860,6 +862,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast]
   );
 
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
+
   const addJob = useCallback((j: Job) => {
     setAllJobs((js) => [j, ...js]);
     api.createPost({
@@ -874,6 +878,40 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     });
   }, [toast]);
+
+  const applyJob = useCallback(
+    async (jobId: string, note?: string) => {
+      setAppliedJobIds((s) => new Set(s).add(jobId));
+
+      const applicant: JobApplicant = {
+        id: `app_${Date.now()}`,
+        studentId: me.id,
+        name: me.name || "JECRC Student",
+        email: me.email,
+        branch: me.branch || "CSE",
+        batch: me.batch || "2025",
+        appliedAt: "Just now",
+        note,
+      };
+
+      setAllJobs((jobs) =>
+        jobs.map((j) => {
+          if (j.id === jobId) {
+            const currentList = j.applicantList || [];
+            return {
+              ...j,
+              applicants: (j.applicants || 0) + 1,
+              applicantList: [applicant, ...currentList.filter((a) => a.studentId !== me.id)],
+            };
+          }
+          return j;
+        })
+      );
+
+      toast("Application submitted! Details sent to the alumni.");
+    },
+    [me, toast]
+  );
 
   const markNotif = useCallback((id: string) => {
     setNotifList((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -981,12 +1019,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
       chats, activeChat, setActiveChat, sendChat, syncMessages, syncPresence, typing, unlockChat,
-      allJobs, addJob, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
+      allJobs, addJob, applyJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
       logout, deleteAccount, updateProfile,
     }),
-    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, syncPresence, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
+    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, syncPresence, typing, unlockChat, allJobs, addJob, applyJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
