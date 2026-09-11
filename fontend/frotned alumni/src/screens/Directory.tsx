@@ -16,7 +16,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useStore, personById, registerDynamicUser } from "../state/store";
-import { people, Person } from "../data/mock";
+import { Person } from "../data/mock";
 import { api } from "../services/api";
 import { Btn, EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Tag } from "../components/ui";
 import { cn } from "../utils/cn";
