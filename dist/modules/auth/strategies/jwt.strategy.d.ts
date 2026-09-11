@@ -15,36 +15,36 @@ export declare class JwtStrategy extends JwtStrategy_base {
     validate(payload: JwtPayload): Promise<{
         studentDetails: {
             userId: string;
-            branch: string;
-            currentYear: number;
-            expectedPassoutYear: number;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            branch: string;
+            currentYear: number;
+            expectedPassoutYear: number;
         };
         alumniDetails: {
             userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             branch: string;
             batch: string;
             passoutYear: number;
             currentCompany: string;
             designation: string;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
-        name: string;
-        role: import(".prisma/client").$Enums.Role;
-        city: string | null;
         email: string | null;
-        mobile: string | null;
-        publicKey: string | null;
         id: string;
+        mobile: string | null;
+        name: string;
         passwordHash: string;
+        role: import(".prisma/client").$Enums.Role;
         isVerified: boolean;
         profilePicUrl: string | null;
         bio: string | null;
+        city: string | null;
+        publicKey: string | null;
         refreshTokenHash: string | null;
         hideLastSeen: boolean;
         createdAt: Date;

@@ -6,9 +6,9 @@ export declare class NotificationsController {
     getNotifications(userId: string, pagination: PaginationQueryDto): Promise<{
         items: {
             userId: string;
-            type: string;
             id: string;
             createdAt: Date;
+            type: string;
             payload: import("@prisma/client/runtime/library").JsonValue;
             isRead: boolean;
         }[];
@@ -25,9 +25,9 @@ export declare class NotificationsController {
     }>;
     markAsRead(notificationId: string, userId: string): Promise<{
         userId: string;
-        type: string;
         id: string;
         createdAt: Date;
+        type: string;
         payload: import("@prisma/client/runtime/library").JsonValue;
         isRead: boolean;
     }>;

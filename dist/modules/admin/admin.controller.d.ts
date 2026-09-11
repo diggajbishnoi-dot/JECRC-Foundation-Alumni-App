@@ -7,25 +7,25 @@ export declare class AdminController {
         items: {
             alumniDetails: {
                 userId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
             };
+            email: string | null;
+            id: string;
+            mobile: string | null;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            city: string | null;
-            email: string | null;
-            mobile: string | null;
-            publicKey: string | null;
-            id: string;
             isVerified: boolean;
             profilePicUrl: string | null;
             bio: string | null;
+            city: string | null;
+            publicKey: string | null;
             hideLastSeen: boolean;
             createdAt: Date;
             updatedAt: Date;
@@ -38,16 +38,16 @@ export declare class AdminController {
         };
     }>;
     verifyUser(userId: string): Promise<{
+        email: string | null;
+        id: string;
+        mobile: string | null;
         name: string;
         role: import(".prisma/client").$Enums.Role;
-        city: string | null;
-        email: string | null;
-        mobile: string | null;
-        publicKey: string | null;
-        id: string;
         isVerified: boolean;
         profilePicUrl: string | null;
         bio: string | null;
+        city: string | null;
+        publicKey: string | null;
         hideLastSeen: boolean;
         createdAt: Date;
         updatedAt: Date;

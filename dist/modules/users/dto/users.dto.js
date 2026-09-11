@@ -19,17 +19,35 @@ class UpdateProfileDto {
 }
 exports.UpdateProfileDto = UpdateProfileDto;
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Arjun Mehta' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateProfileDto.prototype, "name", void 0);
+__decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Tech enthusiast and open source contributor' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateProfileDto.prototype, "bio", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Bengaluru, India' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Jaipur, India' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateProfileDto.prototype, "city", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Computer Science and Engineering' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateProfileDto.prototype, "branch", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: '2024' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateProfileDto.prototype, "batch", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: false }),
     (0, class_validator_1.IsOptional)(),

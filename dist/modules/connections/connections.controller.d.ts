@@ -38,27 +38,27 @@ export declare class ConnectionsController {
             peer: {
                 studentDetails: {
                     userId: string;
-                    branch: string;
-                    currentYear: number;
-                    expectedPassoutYear: number;
                     id: string;
                     createdAt: Date;
                     updatedAt: Date;
+                    branch: string;
+                    currentYear: number;
+                    expectedPassoutYear: number;
                 };
                 alumniDetails: {
                     userId: string;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
                     branch: string;
                     batch: string;
                     passoutYear: number;
                     currentCompany: string;
                     designation: string;
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
                 };
+                id: string;
                 name: string;
                 role: import(".prisma/client").$Enums.Role;
-                id: string;
                 profilePicUrl: string;
             };
         }[];
@@ -73,27 +73,27 @@ export declare class ConnectionsController {
         requester: {
             studentDetails: {
                 userId: string;
-                branch: string;
-                currentYear: number;
-                expectedPassoutYear: number;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                branch: string;
+                currentYear: number;
+                expectedPassoutYear: number;
             };
             alumniDetails: {
                 userId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
             };
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
     } & {
@@ -108,27 +108,27 @@ export declare class ConnectionsController {
         receiver: {
             studentDetails: {
                 userId: string;
-                branch: string;
-                currentYear: number;
-                expectedPassoutYear: number;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                branch: string;
+                currentYear: number;
+                expectedPassoutYear: number;
             };
             alumniDetails: {
                 userId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
             };
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
     } & {

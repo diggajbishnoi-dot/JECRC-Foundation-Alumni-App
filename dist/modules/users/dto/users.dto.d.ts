@@ -1,8 +1,11 @@
 import { Platform, Role } from '@prisma/client';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 export declare class UpdateProfileDto {
+    name?: string;
     bio?: string;
     city?: string;
+    branch?: string;
+    batch?: string;
     hideLastSeen?: boolean;
     currentCompany?: string;
     designation?: string;

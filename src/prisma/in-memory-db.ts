@@ -447,6 +447,17 @@ export class InMemoryDb {
         list[idx] = updated;
         return db.expandRelations(updated, args.include, relationsMap);
       },
+      async updateMany(args: any) {
+        const list = (db[collectionName] as any[]);
+        let count = 0;
+        list.forEach((item, idx) => {
+          if (db.matchesWhere(item, args.where)) {
+            list[idx] = { ...item, ...args.data, updatedAt: new Date() };
+            count++;
+          }
+        });
+        return { count };
+      },
       async upsert(args: any) {
         const existing = await this.findFirst({ where: args.where });
         if (existing) {

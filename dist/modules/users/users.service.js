@@ -51,36 +51,100 @@ let UsersService = class UsersService {
     async updateMe(userId, dto) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            include: { alumniDetails: true },
+            include: { alumniDetails: true, studentDetails: true },
         });
         if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
-        const updated = await this.prisma.$transaction(async (tx) => {
+        await this.prisma.$transaction(async (tx) => {
             const userUpdate = {};
+            if (dto.name !== undefined)
+                userUpdate.name = dto.name;
             if (dto.bio !== undefined)
                 userUpdate.bio = dto.bio;
             if (dto.city !== undefined)
                 userUpdate.city = dto.city;
             if (dto.hideLastSeen !== undefined)
                 userUpdate.hideLastSeen = dto.hideLastSeen;
-            const res = await tx.user.update({
-                where: { id: userId },
-                data: userUpdate,
-            });
-            if (user.role === client_1.Role.ALUMNI &&
-                (dto.currentCompany || dto.designation)) {
-                await tx.alumniDetails.updateMany({
-                    where: { userId },
-                    data: {
-                        ...(dto.currentCompany && { currentCompany: dto.currentCompany }),
-                        ...(dto.designation && { designation: dto.designation }),
-                    },
+            if (Object.keys(userUpdate).length > 0) {
+                await tx.user.update({
+                    where: { id: userId },
+                    data: userUpdate,
                 });
             }
-            return res;
+            if (user.role === client_1.Role.ALUMNI) {
+                const alumniData = {};
+                if (dto.branch !== undefined)
+                    alumniData.branch = dto.branch;
+                if (dto.batch !== undefined) {
+                    alumniData.batch = dto.batch;
+                    const parsed = parseInt(dto.batch, 10);
+                    if (!isNaN(parsed))
+                        alumniData.passoutYear = parsed;
+                }
+                if (dto.currentCompany !== undefined)
+                    alumniData.currentCompany = dto.currentCompany;
+                if (dto.designation !== undefined)
+                    alumniData.designation = dto.designation;
+                if (Object.keys(alumniData).length > 0) {
+                    if (user.alumniDetails) {
+                        await tx.alumniDetails.updateMany({
+                            where: { userId },
+                            data: alumniData,
+                        });
+                    }
+                    else {
+                        await tx.alumniDetails.create({
+                            data: {
+                                userId,
+                                branch: dto.branch || 'CSE',
+                                batch: dto.batch || '2020',
+                                passoutYear: parseInt(dto.batch || '2020', 10) || 2020,
+                                currentCompany: dto.currentCompany || '',
+                                designation: dto.designation || 'Alumnus',
+                            },
+                        });
+                    }
+                }
+            }
+            else if (user.role === client_1.Role.STUDENT) {
+                const studentData = {};
+                if (dto.branch !== undefined)
+                    studentData.branch = dto.branch;
+                if (dto.batch !== undefined) {
+                    const parsed = parseInt(dto.batch, 10);
+                    if (!isNaN(parsed))
+                        studentData.expectedPassoutYear = parsed;
+                }
+                if (Object.keys(studentData).length > 0) {
+                    if (user.studentDetails) {
+                        await tx.studentDetails.updateMany({
+                            where: { userId },
+                            data: studentData,
+                        });
+                    }
+                    else {
+                        await tx.studentDetails.create({
+                            data: {
+                                userId,
+                                branch: dto.branch || 'CSE',
+                                currentYear: 4,
+                                expectedPassoutYear: parseInt(dto.batch || '2027', 10) || 2027,
+                            },
+                        });
+                    }
+                }
+            }
         });
-        const { passwordHash, refreshTokenHash, ...safe } = updated;
+        const refreshed = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                studentDetails: true,
+                alumniDetails: true,
+                mentorProfile: true,
+            },
+        });
+        const { passwordHash, refreshTokenHash, ...safe } = refreshed || user;
         return safe;
     }
     async uploadProfilePicture(userId, file) {

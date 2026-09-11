@@ -97,6 +97,15 @@ interface Store {
   // auth
   logout: () => void;
   deleteAccount: () => void;
+  updateProfile: (data: {
+    name?: string;
+    headline?: string;
+    branch?: string;
+    batch?: string;
+    company?: string;
+    city?: string;
+    about?: string;
+  }) => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -274,21 +283,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (res.success && res.data) {
           const u = res.data;
           const uRole = (u.role?.toLowerCase() as Role) || "alumni";
+          const uBranch = u.alumniDetails?.branch || u.studentDetails?.branch || "CSE";
+          const uBatch = u.alumniDetails?.batch || (u.studentDetails?.expectedPassoutYear ? String(u.studentDetails.expectedPassoutYear) : (uRole === "alumni" ? "2020" : "2027"));
+          const uHeadline = u.alumniDetails?.designation
+            ? `${u.alumniDetails.designation}${u.alumniDetails.currentCompany ? ` @ ${u.alumniDetails.currentCompany}` : ""}`
+            : (uRole === "alumni" ? `Alumni · Batch ${uBatch}` : `Student · Class of ${uBatch}`);
           setRole(uRole);
-          setMe({
+          const mappedMe: Person = {
             id: u.id,
             name: u.name,
             role: uRole,
-            branch: u.alumniDetails?.branch || u.studentDetails?.branch || "CSE",
-            batch: u.alumniDetails?.batch || "2020",
-            company: u.alumniDetails?.currentCompany,
+            branch: uBranch,
+            batch: uBatch,
+            company: u.alumniDetails?.currentCompany || "",
             city: u.city || "Jaipur",
             about: u.bio || "JECRC Alumni Network Member",
             color: uRole === "alumni" ? "#0F2A5E" : "#2563EB",
-            headline: u.alumniDetails?.designation
-              ? `${u.alumniDetails.designation} @ ${u.alumniDetails.currentCompany || "JECRC"}`
-              : `${uRole === "alumni" ? "Alumnus" : "Student"} · JECRC Foundation`,
-          });
+            headline: uHeadline,
+          };
+          setMe(mappedMe);
+          registerDynamicUser(mappedMe);
           setPhase("app");
         }
       });
@@ -586,6 +600,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setNotifList((ns) => ns.map((n) => ({ ...n, read: true })));
   }, []);
 
+  const updateProfile = useCallback(
+    async (data: {
+      name?: string;
+      headline?: string;
+      branch?: string;
+      batch?: string;
+      company?: string;
+      city?: string;
+      about?: string;
+    }) => {
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          ...(data.name && { name: data.name }),
+          ...(data.headline && { headline: data.headline }),
+          ...(data.branch && { branch: data.branch }),
+          ...(data.batch && { batch: data.batch }),
+          ...(data.company !== undefined && { company: data.company }),
+          ...(data.city && { city: data.city }),
+          ...(data.about !== undefined && { about: data.about }),
+        };
+        registerDynamicUser(updated);
+        return updated;
+      });
+
+      try {
+        await api.updateProfile({
+          name: data.name,
+          branch: data.branch,
+          batch: data.batch,
+          currentCompany: data.company,
+          designation: data.headline,
+          bio: data.about,
+          city: data.city,
+        });
+      } catch (err) {
+        console.warn("Failed to persist profile update to backend:", err);
+      }
+    },
+    []
+  );
+
   const logout = useCallback(() => {
     api.setToken(null);
     clearStack();
@@ -643,9 +699,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
-      logout, deleteAccount,
+      logout, deleteAccount, updateProfile,
     }),
-    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount]
+    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

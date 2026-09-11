@@ -7,19 +7,19 @@ export declare class DiscussionsService {
     constructor(prisma: PrismaService);
     createThread(userId: string, dto: CreateThreadDto): Promise<{
         user: {
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
     } & {
         userId: string;
         groupId: string | null;
-        description: string;
-        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        description: string;
+        title: string;
         reportCount: number;
         category: string;
     }>;
@@ -32,9 +32,9 @@ export declare class DiscussionsService {
             groupId: string;
             createdAt: Date;
             user: {
+                id: string;
                 name: string;
                 role: import(".prisma/client").$Enums.Role;
-                id: string;
                 profilePicUrl: string;
             };
             totalReplies: number;
@@ -58,27 +58,27 @@ export declare class DiscussionsService {
         user: {
             studentDetails: {
                 userId: string;
-                branch: string;
-                currentYear: number;
-                expectedPassoutYear: number;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                branch: string;
+                currentYear: number;
+                expectedPassoutYear: number;
             };
             alumniDetails: {
                 userId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
             };
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
         totalReplies: number;
@@ -92,9 +92,9 @@ export declare class DiscussionsService {
             content: string;
             createdAt: Date;
             user: {
+                id: string;
                 name: string;
                 role: import(".prisma/client").$Enums.Role;
-                id: string;
                 profilePicUrl: string;
             };
             totalUpvotes: number;
@@ -109,9 +109,9 @@ export declare class DiscussionsService {
     }>;
     createReply(threadId: string, userId: string, dto: CreateReplyDto): Promise<{
         user: {
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
     } & {

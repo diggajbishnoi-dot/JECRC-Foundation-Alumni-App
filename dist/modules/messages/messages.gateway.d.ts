@@ -22,13 +22,13 @@ export declare class MessagesGateway implements OnGatewayConnection, OnGatewayDi
     handleSendMessage(client: AuthenticatedSocket, dto: SendMessageDto): Promise<{
         success: boolean;
         message: {
+            receiverId: string;
+            senderId: string;
             id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.MessageStatus;
             encryptedContent: string;
             nonce: string;
-            status: import(".prisma/client").$Enums.MessageStatus;
-            createdAt: Date;
-            senderId: string;
-            receiverId: string;
         };
         error?: undefined;
     } | {

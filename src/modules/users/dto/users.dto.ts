@@ -5,15 +5,30 @@ import { IsBoolean, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'clas
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
 export class UpdateProfileDto {
+  @ApiPropertyOptional({ example: 'Arjun Mehta' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @ApiPropertyOptional({ example: 'Tech enthusiast and open source contributor' })
   @IsOptional()
   @IsString()
   bio?: string;
 
-  @ApiPropertyOptional({ example: 'Bengaluru, India' })
+  @ApiPropertyOptional({ example: 'Jaipur, India' })
   @IsOptional()
   @IsString()
   city?: string;
+
+  @ApiPropertyOptional({ example: 'Computer Science and Engineering' })
+  @IsOptional()
+  @IsString()
+  branch?: string;
+
+  @ApiPropertyOptional({ example: '2024' })
+  @IsOptional()
+  @IsString()
+  batch?: string;
 
   @ApiPropertyOptional({ example: false })
   @IsOptional()

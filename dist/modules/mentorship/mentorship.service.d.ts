@@ -27,19 +27,19 @@ export declare class MentorshipService {
             user: {
                 alumniDetails: {
                     userId: string;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
                     branch: string;
                     batch: string;
                     passoutYear: number;
                     currentCompany: string;
                     designation: string;
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
                 };
-                name: string;
-                city: string;
                 id: string;
+                name: string;
                 profilePicUrl: string;
+                city: string;
             };
             activeMenteesCount: number;
             isAcceptingMentees: boolean;
@@ -92,31 +92,31 @@ export declare class MentorshipService {
             student: {
                 studentDetails: {
                     userId: string;
-                    branch: string;
-                    currentYear: number;
-                    expectedPassoutYear: number;
                     id: string;
                     createdAt: Date;
                     updatedAt: Date;
+                    branch: string;
+                    currentYear: number;
+                    expectedPassoutYear: number;
                 };
-                name: string;
                 id: string;
+                name: string;
                 profilePicUrl: string;
             };
             mentor: {
                 alumniDetails: {
                     userId: string;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
                     branch: string;
                     batch: string;
                     passoutYear: number;
                     currentCompany: string;
                     designation: string;
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
                 };
-                name: string;
                 id: string;
+                name: string;
                 profilePicUrl: string;
             };
         } & {

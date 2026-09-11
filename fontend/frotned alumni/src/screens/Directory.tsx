@@ -401,8 +401,8 @@ export function ConnectButton({
 
 /* ============== PROFILE ============== */
 export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolean }) {
-  const { pop, push, me, setMe, toast, conn, requestConnect, requestMentor, mentorReq, chats, goTab, role } = useStore();
-  const isMe = !id || id === "me";
+  const { pop, push, me, updateProfile, toast, conn, requestConnect, requestMentor, mentorReq, chats, goTab, role } = useStore();
+  const isMe = !id || id === "me" || id === me.id;
   const p: Person = isMe ? me : personById(id);
   const [tabIdx, setTabIdx] = useState(0);
   const state = conn[p.id] ?? "none";
@@ -680,22 +680,27 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
       {/* Edit Profile Bottom Sheet */}
       <Sheet open={editOpen} onClose={() => setEditOpen(false)} title="Edit Profile">
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (isMe) {
               const updatedBranch = editForm.branch.trim() || me.branch;
               const updatedBatch = editForm.batch.trim() || me.batch;
-              setMe({
-                ...me,
-                name: editForm.name.trim() || me.name,
-                headline: editForm.headline.trim() || me.headline,
+              const updatedName = editForm.name.trim() || me.name;
+              const updatedHeadline = editForm.headline.trim() || me.headline;
+              const updatedCompany = editForm.company.trim();
+              const updatedCity = editForm.city.trim() || me.city;
+              const updatedAbout = editForm.about.trim() || me.about;
+
+              await updateProfile({
+                name: updatedName,
+                headline: updatedHeadline,
                 branch: updatedBranch,
                 batch: updatedBatch,
-                company: editForm.company.trim(),
-                city: editForm.city.trim() || me.city,
-                about: editForm.about.trim() || me.about,
+                company: updatedCompany,
+                city: updatedCity,
+                about: updatedAbout,
               });
-              toast("Profile updated successfully!");
+              toast("Profile updated & saved successfully!");
               setEditOpen(false);
             }
           }}

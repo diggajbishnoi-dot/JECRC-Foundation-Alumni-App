@@ -11,19 +11,19 @@ export declare class UsersService {
         totalConnections: number;
         totalPosts: number;
         studentDetails: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             branch: string;
             currentYear: number;
             expectedPassoutYear: number;
         };
         alumniDetails: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             branch: string;
             batch: string;
             passoutYear: number;
@@ -31,18 +31,18 @@ export declare class UsersService {
             designation: string;
         };
         mentorProfile: {
+            userId: string;
             id: string;
             bio: string | null;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             domains: string[];
             availability: string;
             maxMentees: number;
             isActive: boolean;
         };
-        id: string;
         email: string | null;
+        id: string;
         mobile: string | null;
         name: string;
         role: import(".prisma/client").$Enums.Role;
@@ -56,8 +56,28 @@ export declare class UsersService {
         updatedAt: Date;
     }>;
     updateMe(userId: string, dto: UpdateProfileDto): Promise<{
-        id: string;
+        studentDetails: {
+            userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            branch: string;
+            currentYear: number;
+            expectedPassoutYear: number;
+        };
+        alumniDetails: {
+            userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            branch: string;
+            batch: string;
+            passoutYear: number;
+            currentCompany: string;
+            designation: string;
+        };
         email: string | null;
+        id: string;
         mobile: string | null;
         name: string;
         role: import(".prisma/client").$Enums.Role;
@@ -97,19 +117,19 @@ export declare class UsersService {
         city: string;
         bio: string;
         studentDetails: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             branch: string;
             currentYear: number;
             expectedPassoutYear: number;
         };
         alumniDetails: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             branch: string;
             batch: string;
             passoutYear: number;
@@ -117,11 +137,11 @@ export declare class UsersService {
             designation: string;
         };
         mentorProfile: {
+            userId: string;
             id: string;
             bio: string | null;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             domains: string[];
             availability: string;
             maxMentees: number;
@@ -133,33 +153,33 @@ export declare class UsersService {
     }>;
     searchUsers(query: SearchUsersQueryDto): Promise<{
         items: {
-            id: string;
-            email: string;
-            name: string;
-            role: import(".prisma/client").$Enums.Role;
-            profilePicUrl: string;
-            bio: string;
-            city: string;
             studentDetails: {
+                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
                 branch: string;
                 currentYear: number;
                 expectedPassoutYear: number;
             };
             alumniDetails: {
+                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
             };
+            email: string;
+            id: string;
+            name: string;
+            role: import(".prisma/client").$Enums.Role;
+            profilePicUrl: string;
+            bio: string;
+            city: string;
         }[];
         meta: {
             total: number;

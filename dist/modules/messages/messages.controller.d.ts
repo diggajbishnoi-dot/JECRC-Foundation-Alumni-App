@@ -5,23 +5,23 @@ export declare class MessagesController {
     private readonly messagesService;
     constructor(messagesService: MessagesService);
     sendMessage(currentUserId: string, dto: SendMessageDto): Promise<{
+        receiverId: string;
+        senderId: string;
         id: string;
+        createdAt: Date;
+        status: import(".prisma/client").$Enums.MessageStatus;
         encryptedContent: string;
         nonce: string;
-        status: import(".prisma/client").$Enums.MessageStatus;
-        createdAt: Date;
-        senderId: string;
-        receiverId: string;
     }>;
     getConversationHistory(currentUserId: string, otherUserId: string, pagination: PaginationQueryDto): Promise<{
         items: {
+            receiverId: string;
+            senderId: string;
             id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.MessageStatus;
             encryptedContent: string;
             nonce: string;
-            status: import(".prisma/client").$Enums.MessageStatus;
-            createdAt: Date;
-            senderId: string;
-            receiverId: string;
         }[];
         meta: {
             total: number;

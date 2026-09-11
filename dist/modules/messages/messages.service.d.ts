@@ -12,40 +12,40 @@ export declare class MessagesService {
     private readonly logger;
     constructor(prisma: PrismaService, connectionsService: ConnectionsService, redisService: RedisService, fcmService: FcmService);
     sendMessage(senderId: string, dto: SendMessageDto): Promise<{
+        receiverId: string;
+        senderId: string;
         id: string;
+        createdAt: Date;
+        status: import(".prisma/client").$Enums.MessageStatus;
         encryptedContent: string;
         nonce: string;
-        status: import(".prisma/client").$Enums.MessageStatus;
-        createdAt: Date;
-        senderId: string;
-        receiverId: string;
     }>;
     markDelivered(messageId: string, receiverId: string): Promise<{
-        id: string;
-        status: import(".prisma/client").$Enums.MessageStatus;
-        updatedAt: Date;
-        senderId: string;
         receiverId: string;
+        senderId: string;
+        id: string;
+        updatedAt: Date;
+        status: import(".prisma/client").$Enums.MessageStatus;
     }>;
     markRead(messageId: string, receiverId: string): Promise<{
-        id: string;
-        status: import(".prisma/client").$Enums.MessageStatus;
-        updatedAt: Date;
-        senderId: string;
         receiverId: string;
+        senderId: string;
+        id: string;
+        updatedAt: Date;
+        status: import(".prisma/client").$Enums.MessageStatus;
     }>;
     markConversationRead(currentUserId: string, otherUserId: string): Promise<{
         updatedCount: number;
     }>;
     getConversationHistory(currentUserId: string, otherUserId: string, pagination: PaginationQueryDto): Promise<{
         items: {
+            receiverId: string;
+            senderId: string;
             id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.MessageStatus;
             encryptedContent: string;
             nonce: string;
-            status: import(".prisma/client").$Enums.MessageStatus;
-            createdAt: Date;
-            senderId: string;
-            receiverId: string;
         }[];
         meta: {
             total: number;

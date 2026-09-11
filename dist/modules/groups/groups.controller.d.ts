@@ -8,12 +8,12 @@ export declare class GroupsController {
     constructor(groupsService: GroupsService);
     createGroup(userId: string, dto: CreateGroupDto): Promise<{
         createdById: string;
-        type: import(".prisma/client").$Enums.GroupType;
-        name: string;
-        description: string | null;
         id: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
+        type: import(".prisma/client").$Enums.GroupType;
+        description: string | null;
     }>;
     getGroups(query: QueryGroupsDto, currentUserId: string): Promise<{
         items: {
@@ -44,8 +44,8 @@ export declare class GroupsController {
     joinGroup(groupId: string, userId: string): Promise<{
         userId: string;
         groupId: string;
-        role: import(".prisma/client").$Enums.GroupRole;
         id: string;
+        role: import(".prisma/client").$Enums.GroupRole;
         joinedAt: Date;
     }>;
     leaveGroup(groupId: string, userId: string): Promise<{
@@ -56,34 +56,34 @@ export declare class GroupsController {
             user: {
                 studentDetails: {
                     userId: string;
-                    branch: string;
-                    currentYear: number;
-                    expectedPassoutYear: number;
                     id: string;
                     createdAt: Date;
                     updatedAt: Date;
+                    branch: string;
+                    currentYear: number;
+                    expectedPassoutYear: number;
                 };
                 alumniDetails: {
                     userId: string;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
                     branch: string;
                     batch: string;
                     passoutYear: number;
                     currentCompany: string;
                     designation: string;
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
                 };
+                id: string;
                 name: string;
                 role: import(".prisma/client").$Enums.Role;
-                id: string;
                 profilePicUrl: string;
             };
         } & {
             userId: string;
             groupId: string;
-            role: import(".prisma/client").$Enums.GroupRole;
             id: string;
+            role: import(".prisma/client").$Enums.GroupRole;
             joinedAt: Date;
         })[];
         meta: {
@@ -100,19 +100,19 @@ export declare class GroupsController {
                 upvotes: number;
             };
             user: {
+                id: string;
                 name: string;
                 role: import(".prisma/client").$Enums.Role;
-                id: string;
                 profilePicUrl: string;
             };
         } & {
             userId: string;
             groupId: string | null;
-            description: string;
-            title: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            description: string;
+            title: string;
             reportCount: number;
             category: string;
         })[];
@@ -125,30 +125,30 @@ export declare class GroupsController {
     }>;
     createGroupDiscussion(groupId: string, userId: string, dto: CreateThreadDto): Promise<{
         user: {
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
     } & {
         userId: string;
         groupId: string | null;
-        description: string;
-        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        description: string;
+        title: string;
         reportCount: number;
         category: string;
     }>;
     updateGroup(groupId: string, userId: string, role: Role, dto: UpdateGroupDto): Promise<{
         createdById: string;
-        type: import(".prisma/client").$Enums.GroupType;
-        name: string;
-        description: string | null;
         id: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
+        type: import(".prisma/client").$Enums.GroupType;
+        description: string | null;
     }>;
     deleteGroup(groupId: string, userId: string, role: Role): Promise<{
         message: string;

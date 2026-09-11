@@ -112,6 +112,21 @@ class ApiService {
     return await this.request('/users/me');
   }
 
+  async updateProfile(data: {
+    name?: string;
+    bio?: string;
+    city?: string;
+    branch?: string;
+    batch?: string;
+    currentCompany?: string;
+    designation?: string;
+  }) {
+    return await this.request('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Claim profile endpoints
   async claimLookup(identifier: string, role?: string) {
     return await this.request<{

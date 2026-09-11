@@ -27,6 +27,9 @@ export declare class InMemoryDb {
         findMany(args?: any): Promise<any[]>;
         create(args: any): Promise<any>;
         update(args: any): Promise<any>;
+        updateMany(args: any): Promise<{
+            count: number;
+        }>;
         upsert(args: any): Promise<any>;
         delete(args: any): Promise<any>;
         deleteMany(args?: any): Promise<{

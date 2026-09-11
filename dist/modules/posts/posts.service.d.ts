@@ -8,29 +8,29 @@ export declare class PostsService {
         user: {
             alumniDetails: {
                 userId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
             };
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
     } & {
         userId: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
         type: import(".prisma/client").$Enums.PostType;
         description: string;
         title: string;
         company: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         location: string | null;
         attachmentUrl: string | null;
         reportCount: number;
@@ -40,38 +40,38 @@ export declare class PostsService {
             user: {
                 studentDetails: {
                     userId: string;
-                    branch: string;
-                    currentYear: number;
-                    expectedPassoutYear: number;
                     id: string;
                     createdAt: Date;
                     updatedAt: Date;
+                    branch: string;
+                    currentYear: number;
+                    expectedPassoutYear: number;
                 };
                 alumniDetails: {
                     userId: string;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
                     branch: string;
                     batch: string;
                     passoutYear: number;
                     currentCompany: string;
                     designation: string;
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
                 };
+                id: string;
                 name: string;
                 role: import(".prisma/client").$Enums.Role;
-                id: string;
                 profilePicUrl: string;
             };
         } & {
             userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             type: import(".prisma/client").$Enums.PostType;
             description: string;
             title: string;
             company: string | null;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
             location: string | null;
             attachmentUrl: string | null;
             reportCount: number;
@@ -87,38 +87,38 @@ export declare class PostsService {
         user: {
             studentDetails: {
                 userId: string;
-                branch: string;
-                currentYear: number;
-                expectedPassoutYear: number;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                branch: string;
+                currentYear: number;
+                expectedPassoutYear: number;
             };
             alumniDetails: {
                 userId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
             };
+            id: string;
             name: string;
             role: import(".prisma/client").$Enums.Role;
-            id: string;
             profilePicUrl: string;
         };
     } & {
         userId: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
         type: import(".prisma/client").$Enums.PostType;
         description: string;
         title: string;
         company: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         location: string | null;
         attachmentUrl: string | null;
         reportCount: number;
