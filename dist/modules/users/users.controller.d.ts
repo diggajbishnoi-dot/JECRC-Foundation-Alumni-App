@@ -66,6 +66,9 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
     }>;
+    deleteMe(userId: string): Promise<{
+        message: string;
+    }>;
     uploadProfilePicture(userId: string, file: any): Promise<{
         profilePicUrl: string;
     }>;
@@ -77,6 +80,13 @@ export declare class UsersController {
     }>;
     searchUsers(query: SearchUsersQueryDto): Promise<{
         items: {
+            id: string;
+            email: string;
+            name: string;
+            role: import(".prisma/client").$Enums.Role;
+            profilePicUrl: string;
+            bio: string;
+            city: string;
             studentDetails: {
                 id: string;
                 createdAt: Date;
@@ -97,12 +107,6 @@ export declare class UsersController {
                 currentCompany: string;
                 designation: string;
             };
-            id: string;
-            name: string;
-            role: import(".prisma/client").$Enums.Role;
-            profilePicUrl: string;
-            bio: string;
-            city: string;
         }[];
         meta: {
             total: number;

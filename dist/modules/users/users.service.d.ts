@@ -133,6 +133,13 @@ export declare class UsersService {
     }>;
     searchUsers(query: SearchUsersQueryDto): Promise<{
         items: {
+            id: string;
+            email: string;
+            name: string;
+            role: import(".prisma/client").$Enums.Role;
+            profilePicUrl: string;
+            bio: string;
+            city: string;
             studentDetails: {
                 id: string;
                 createdAt: Date;
@@ -153,12 +160,6 @@ export declare class UsersService {
                 currentCompany: string;
                 designation: string;
             };
-            id: string;
-            name: string;
-            role: import(".prisma/client").$Enums.Role;
-            profilePicUrl: string;
-            bio: string;
-            city: string;
         }[];
         meta: {
             total: number;
@@ -168,6 +169,9 @@ export declare class UsersService {
         };
     }>;
     registerDeviceToken(userId: string, dto: RegisterDeviceTokenDto): Promise<{
+        message: string;
+    }>;
+    deleteAccount(userId: string): Promise<{
         message: string;
     }>;
 }

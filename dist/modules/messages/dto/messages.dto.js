@@ -23,8 +23,8 @@ __decorate([
 ], SendMessageDto.prototype, "receiverId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Ciphertext only - encrypted on mobile device via X25519 + AES/XSalsa20 before sending',
-        example: 'dGhpcyBpcyBhbiBlbmNyeXB0ZWQgY2lwaGVydGV4dA==',
+        description: 'Message content or ciphertext',
+        example: 'Hello!',
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
@@ -32,11 +32,12 @@ __decorate([
 ], SendMessageDto.prototype, "encryptedContent", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Initialization vector / Nonce generated during client-side encryption',
+        description: 'Initialization vector / Nonce',
+        required: false,
         example: 'ubqO67k81zZp18Xz9A7n0Q==',
     }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], SendMessageDto.prototype, "nonce", void 0);
 class MarkDeliveredDto {

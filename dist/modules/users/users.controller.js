@@ -31,6 +31,9 @@ let UsersController = class UsersController {
     async updateMe(userId, dto) {
         return await this.usersService.updateMe(userId, dto);
     }
+    async deleteMe(userId) {
+        return await this.usersService.deleteAccount(userId);
+    }
     async uploadProfilePicture(userId, file) {
         return await this.usersService.uploadProfilePicture(userId, file);
     }
@@ -71,6 +74,14 @@ __decorate([
     __metadata("design:paramtypes", [String, users_dto_1.UpdateProfileDto]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "updateMe", null);
+__decorate([
+    (0, common_1.Delete)('me'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete current user account permanently' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "deleteMe", null);
 __decorate([
     (0, common_1.Post)('me/profile-picture'),
     (0, swagger_1.ApiOperation)({ summary: 'Upload avatar to S3' }),

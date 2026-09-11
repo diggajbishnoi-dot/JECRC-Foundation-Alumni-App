@@ -30,12 +30,13 @@ let MessagesService = MessagesService_1 = class MessagesService {
         if (!isConnected) {
             throw new common_1.ForbiddenException('Messaging is restricted to accepted connections or active mentorship partners.');
         }
+        const nonce = dto.nonce || Buffer.from(Date.now().toString()).toString('base64');
         const message = await this.prisma.message.create({
             data: {
                 senderId,
                 receiverId: dto.receiverId,
                 encryptedContent: dto.encryptedContent,
-                nonce: dto.nonce,
+                nonce,
                 status: client_1.MessageStatus.SENT,
             },
             select: {

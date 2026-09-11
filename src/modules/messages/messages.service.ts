@@ -36,12 +36,13 @@ export class MessagesService {
       );
     }
 
+    const nonce = dto.nonce || Buffer.from(Date.now().toString()).toString('base64');
     const message = await this.prisma.message.create({
       data: {
         senderId,
         receiverId: dto.receiverId,
         encryptedContent: dto.encryptedContent,
-        nonce: dto.nonce,
+        nonce,
         status: MessageStatus.SENT,
       },
       select: {

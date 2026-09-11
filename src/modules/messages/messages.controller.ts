@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -10,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { SendMessageDto } from './dto/messages.dto';
 import { MessagesService } from './messages.service';
 
 @ApiTags('Messages & Chat')
@@ -18,6 +21,19 @@ import { MessagesService } from './messages.service';
 @Controller('messages')
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
+
+  @Post()
+  @ApiOperation({
+    summary: 'Send message',
+    description: 'Send a message to a connected user via REST.',
+  })
+  @ApiResponse({ status: 201, description: 'Message successfully created and sent' })
+  async sendMessage(
+    @CurrentUser('id') currentUserId: string,
+    @Body() dto: SendMessageDto,
+  ) {
+    return await this.messagesService.sendMessage(currentUserId, dto);
+  }
 
   @Get(':userId')
   @ApiOperation({

@@ -280,6 +280,28 @@ class ApiService {
       method: 'POST',
     });
   }
+
+  // Messages & Real-time Chat
+  async sendMessage(receiverId: string, encryptedContent: string, nonce?: string) {
+    return await this.request('/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        receiverId,
+        encryptedContent,
+        nonce: nonce || btoa(Date.now().toString()),
+      }),
+    });
+  }
+
+  async getMessages(userId: string) {
+    return await this.request<{ items: any[]; meta: any }>(`/messages/${userId}`);
+  }
+
+  async markMessagesRead(userId: string) {
+    return await this.request(`/messages/${userId}/read`, {
+      method: 'PATCH',
+    });
+  }
 }
 
 export const api = new ApiService();

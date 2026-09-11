@@ -18,10 +18,14 @@ const swagger_1 = require("@nestjs/swagger");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const pagination_dto_1 = require("../../common/dto/pagination.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const messages_dto_1 = require("./dto/messages.dto");
 const messages_service_1 = require("./messages.service");
 let MessagesController = class MessagesController {
     constructor(messagesService) {
         this.messagesService = messagesService;
+    }
+    async sendMessage(currentUserId, dto) {
+        return await this.messagesService.sendMessage(currentUserId, dto);
     }
     async getConversationHistory(currentUserId, otherUserId, pagination) {
         return await this.messagesService.getConversationHistory(currentUserId, otherUserId, pagination);
@@ -31,6 +35,19 @@ let MessagesController = class MessagesController {
     }
 };
 exports.MessagesController = MessagesController;
+__decorate([
+    (0, common_1.Post)(),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Send message',
+        description: 'Send a message to a connected user via REST.',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Message successfully created and sent' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, messages_dto_1.SendMessageDto]),
+    __metadata("design:returntype", Promise)
+], MessagesController.prototype, "sendMessage", null);
 __decorate([
     (0, common_1.Get)(':userId'),
     (0, swagger_1.ApiOperation)({

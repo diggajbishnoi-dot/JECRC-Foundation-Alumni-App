@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useStore, personById, ChatMsg } from "../state/store";
 import { EmptyState, InitialsAvatar, ListSkeleton, Sheet, TypingDots, ProgressRing } from "../components/ui";
+import { api } from "../services/api";
 
 function Ticks({ status }: { status: ChatMsg["status"] }) {
   if (status === "sent") return <Check size={14} className="text-white/60" />;
@@ -19,13 +20,26 @@ function Ticks({ status }: { status: ChatMsg["status"] }) {
 
 /* ============== CHAT LIST ============== */
 export function ChatListScreen() {
-  const { chats, push, setActiveChat } = useStore();
+  const { chats, push, setActiveChat, syncMessages } = useStore();
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 900);
-    return () => clearTimeout(t);
-  }, []);
+    // Sync all chats
+    chats.forEach((c) => {
+      if (c.userId) syncMessages(c.userId);
+    });
+    const t = setTimeout(() => setLoading(false), 500);
+    const interval = setInterval(() => {
+      chats.forEach((c) => {
+        if (c.userId) syncMessages(c.userId);
+      });
+    }, 4000);
+    return () => {
+      clearTimeout(t);
+      clearInterval(interval);
+    };
+  }, [chats.length, syncMessages]);
 
   const filtered = chats.filter((c) => personById(c.userId).name.toLowerCase().includes(q.toLowerCase()));
 
@@ -109,14 +123,25 @@ export function ChatListScreen() {
 
 /* ============== CHAT ROOM ============== */
 export function ChatRoomScreen({ id }: { id: string }) {
-  const { pop, chats, sendChat, typing } = useStore();
-  const chat = chats.find((c) => c.id === id)!;
+  const { pop, chats, sendChat, syncMessages, typing } = useStore();
+  const chat = chats.find((c) => c.id === id || c.userId === id) || { id, userId: id, online: true, unread: 0, msgs: [] };
   const p = personById(chat.userId);
   const [text, setText] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
   const [uploaded, setUploaded] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const isTyping = typing[chat.id];
+
+  useEffect(() => {
+    if (chat.userId) {
+      syncMessages(chat.userId);
+      api.markMessagesRead(chat.userId).catch(() => {});
+      const poll = setInterval(() => {
+        syncMessages(chat.userId);
+      }, 2000);
+      return () => clearInterval(poll);
+    }
+  }, [chat.userId, syncMessages]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });

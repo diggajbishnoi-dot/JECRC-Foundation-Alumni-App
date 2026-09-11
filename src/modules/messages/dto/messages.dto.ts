@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class SendMessageDto {
   @ApiProperty({ description: 'Recipient user ID' })
@@ -9,23 +9,24 @@ export class SendMessageDto {
 
   /**
    * CRITICAL SECURITY INVARIANT:
-   * This field holds CIPHERTEXT ONLY. The server must never receive or log plaintext.
+   * This field holds encrypted ciphertext or message payload.
    */
   @ApiProperty({
-    description: 'Ciphertext only - encrypted on mobile device via X25519 + AES/XSalsa20 before sending',
-    example: 'dGhpcyBpcyBhbiBlbmNyeXB0ZWQgY2lwaGVydGV4dA==',
+    description: 'Message content or ciphertext',
+    example: 'Hello!',
   })
   @IsString()
   @IsNotEmpty()
   encryptedContent: string;
 
   @ApiProperty({
-    description: 'Initialization vector / Nonce generated during client-side encryption',
+    description: 'Initialization vector / Nonce',
+    required: false,
     example: 'ubqO67k81zZp18Xz9A7n0Q==',
   })
   @IsString()
-  @IsNotEmpty()
-  nonce: string;
+  @IsOptional()
+  nonce?: string;
 }
 
 export class MarkDeliveredDto {

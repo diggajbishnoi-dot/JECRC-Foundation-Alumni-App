@@ -1,17 +1,27 @@
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { SendMessageDto } from './dto/messages.dto';
 import { MessagesService } from './messages.service';
 export declare class MessagesController {
     private readonly messagesService;
     constructor(messagesService: MessagesService);
+    sendMessage(currentUserId: string, dto: SendMessageDto): Promise<{
+        id: string;
+        encryptedContent: string;
+        nonce: string;
+        status: import(".prisma/client").$Enums.MessageStatus;
+        createdAt: Date;
+        senderId: string;
+        receiverId: string;
+    }>;
     getConversationHistory(currentUserId: string, otherUserId: string, pagination: PaginationQueryDto): Promise<{
         items: {
-            receiverId: string;
-            senderId: string;
-            encryptedContent: string;
             id: string;
-            createdAt: Date;
-            status: import(".prisma/client").$Enums.MessageStatus;
+            encryptedContent: string;
             nonce: string;
+            status: import(".prisma/client").$Enums.MessageStatus;
+            createdAt: Date;
+            senderId: string;
+            receiverId: string;
         }[];
         meta: {
             total: number;

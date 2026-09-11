@@ -68,6 +68,7 @@ interface Store {
   activeChat: string | null;
   setActiveChat: (id: string | null) => void;
   sendChat: (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => void;
+  syncMessages: (userId: string) => Promise<void>;
   typing: Record<string, boolean>;
   unlockChat: (userId: string) => void;
   // jobs
@@ -137,7 +138,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const [chats, setChats] = useState<Chat[]>([]);
 
-  const timers = useRef<number[]>([]);
   const activeChatRef = useRef<string | null>(null);
   activeChatRef.current = activeChat;
 
@@ -155,6 +155,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 1. Fetch Accepted Connections
     api.getConnections().then((res) => {
       if (res.success && res.data?.items && Array.isArray(res.data.items)) {
+        const peerList: any[] = [];
         res.data.items.forEach((item: any) => {
           const peer = item.peer;
           if (peer?.id) {
@@ -175,7 +176,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               color: peer.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
             };
             registerDynamicUser(mappedPerson);
+            peerList.push(peer);
           }
+        });
+
+        // Initialize active chats for all accepted connections
+        setChats((prev) => {
+          const nextChats = [...prev];
+          peerList.forEach((peer) => {
+            const found = nextChats.find((c) => c.userId === peer.id || c.id === `c_${peer.id}`);
+            if (!found) {
+              nextChats.push({
+                id: `c_${peer.id}`,
+                userId: peer.id,
+                online: true,
+                unread: 0,
+                locked: false,
+                msgs: [],
+              });
+            } else {
+              found.locked = false;
+            }
+          });
+          return nextChats;
         });
       }
     }).catch(() => {});
@@ -403,29 +426,87 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast, syncConnections]
   );
 
+  const syncMessages = useCallback(
+    async (userId: string) => {
+      if (!api.getToken() || !userId) return;
+      try {
+        const res = await api.getMessages(userId);
+        if (res.success && res.data?.items) {
+          const currentUserId = me.id;
+          const formattedMsgs: ChatMsg[] = res.data.items.map((m: any) => {
+            const d = new Date(m.createdAt);
+            const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+            const isFromMe = m.senderId === currentUserId;
+            return {
+              id: m.id,
+              fromMe: isFromMe,
+              kind: "text",
+              text: m.encryptedContent,
+              time,
+              status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
+            };
+          });
+
+          setChats((prev) => {
+            const chatId = `c_${userId}`;
+            const exists = prev.find((c) => c.userId === userId || c.id === chatId);
+            if (exists) {
+              return prev.map((c) =>
+                c.userId === userId || c.id === chatId ? { ...c, locked: false, msgs: formattedMsgs } : c
+              );
+            } else {
+              return [
+                ...prev,
+                {
+                  id: chatId,
+                  userId,
+                  online: true,
+                  unread: 0,
+                  locked: false,
+                  msgs: formattedMsgs,
+                },
+              ];
+            }
+          });
+        }
+      } catch (err) {}
+    },
+    [me.id]
+  );
+
   const sendChat = useCallback(
-    (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => {
-      const chat = chats.find((c) => c.id === chatId);
+    async (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => {
+      const chat = chats.find((c) => c.id === chatId || c.userId === chatId);
       if (!chat) return;
-      const id = `m_${Date.now()}`;
+      const tempId = `m_${Date.now()}`;
+      const timeStr = nowTime();
+
       setChats((cs) =>
         cs.map((c) =>
-          c.id === chatId
-            ? { ...c, msgs: [...c.msgs, { ...msg, id, time: nowTime(), status: "sent" }] }
+          c.id === chat.id
+            ? { ...c, msgs: [...c.msgs, { ...msg, id: tempId, time: timeStr, status: "sent" }] }
             : c
         )
       );
-      // mark as delivered
-      const t1 = window.setTimeout(() => {
-        setChats((cs) =>
-          cs.map((c) =>
-            c.id === chatId
-              ? { ...c, msgs: c.msgs.map((m) => (m.id === id ? { ...m, status: "delivered" } : m)) }
-              : c
-          )
-        );
-      }, 500);
-      timers.current.push(t1);
+
+      try {
+        const content = msg.text || (msg.kind === "image" ? "[Photo]" : `[Document: ${msg.meta?.name || "file"}]`);
+        const res = await api.sendMessage(chat.userId, content);
+        if (res.success && res.data?.id) {
+          setChats((cs) =>
+            cs.map((c) =>
+              c.id === chat.id
+                ? {
+                    ...c,
+                    msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "delivered" } : m)),
+                  }
+                : c
+            )
+          );
+        }
+      } catch (e) {
+        console.warn("Failed to send message:", e);
+      }
     },
     [chats]
   );
@@ -558,13 +639,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       phase, setPhase, role, setRole, me, setMe, completeRegister,
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
-      chats, activeChat, setActiveChat, sendChat, typing, unlockChat,
+      chats, activeChat, setActiveChat, sendChat, syncMessages, typing, unlockChat,
       allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
       logout, deleteAccount,
     }),
-    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount]
+    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
