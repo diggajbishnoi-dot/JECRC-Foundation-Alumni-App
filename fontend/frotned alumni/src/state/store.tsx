@@ -28,7 +28,17 @@ export interface Chat {
 
 interface ToastItem { id: number; text: string }
 
-interface RegData { name: string; email: string; role: Role; branch: string; detail: string }
+interface RegData {
+  name: string;
+  email: string;
+  role: Role;
+  branch: string;
+  detail: string;
+  city?: string;
+  company?: string;
+  title?: string;
+  about?: string;
+}
 
 interface Store {
   phase: Phase;
@@ -396,21 +406,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const completeRegister = useCallback((d: RegData) => {
     setRole(d.role);
+    const batchYear = d.detail || (d.role === "alumni" ? "2020" : "2027");
+    const headline =
+      d.role === "alumni"
+        ? (d.title && d.company ? `${d.title} @ ${d.company}` : `${d.branch || "CSE"} Batch ${batchYear} · JECRC Alumnus`)
+        : `${d.branch || "CSE"} '${batchYear.length >= 2 ? batchYear.slice(-2) : "27"} · JECRC Student`;
+
     setMe({
       id: "me",
       name: d.name || "New Member",
       email: d.email,
       role: d.role,
       branch: d.branch || "CSE",
-      batch: d.detail || (d.role === "alumni" ? "2020" : "2027"),
-      city: "Jaipur",
+      batch: batchYear,
+      city: d.city || "Jaipur",
       color: d.role === "alumni" ? "#0F2A5E" : "#2563EB",
-      headline:
-        d.role === "alumni"
-          ? `${d.branch} Batch ${d.detail || "2020"} · JECRC Alumnus`
-          : `${d.branch} '${(d.detail || "2027").slice(2)} · JECRC Student`,
-      company: d.role === "alumni" ? "—" : undefined,
-      about: "New to the JECRC Foundation network. Say hi!",
+      headline,
+      company: d.company || (d.role === "alumni" ? "—" : undefined),
+      about: d.about || "New to the JECRC Foundation network. Say hi!",
     });
     setPhase("app");
     setTab("home");

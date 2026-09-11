@@ -186,7 +186,7 @@ function StudentHome() {
         </span>
         <div className="flex-1">
           <p className="font-display text-[17px] font-bold text-ink">Find a Mentor</p>
-          <p className="text-[12.5px] font-medium text-ink/70">46 alumni mentors open for requests</p>
+          <p className="text-[12.5px] font-medium text-ink/70">Connect 1-on-1 with verified alumni</p>
         </div>
         <ChevronRight size={20} className="text-ink/70" />
       </motion.button>
@@ -259,14 +259,10 @@ function AlumniHome() {
         <div className="card p-4">
           {mentorOptIn ? (
             <div className="flex items-center gap-3">
-              <div className="flex -space-x-2.5">
-                {["Vikram Singh", "Ishita Agarwal", "Rohan Khanna"].map((n) => (
-                  <InitialsAvatar key={n} name={n} size={36} className="ring-2 ring-white" />
-                ))}
-              </div>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-100 text-gold-600"><GraduationCap size={20} /></span>
               <div className="flex-1">
-                <p className="text-[14px] font-bold text-ink">3 active mentees</p>
-                <p className="text-[12px] text-sub">2 chats waiting for your reply</p>
+                <p className="text-[14px] font-bold text-ink">Mentor Mode Active</p>
+                <p className="text-[12px] text-sub">You are listed in the mentor directory</p>
               </div>
               <ChevronRight size={18} className="text-sub/50" />
             </div>

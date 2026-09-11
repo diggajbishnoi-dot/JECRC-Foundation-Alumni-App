@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  TrendingUp, MessageSquare, Plus, Send, Users, GraduationCap, Check, X,
+  TrendingUp, MessageSquare, Plus, Send, Users, GraduationCap, Check,
   MessagesSquare, HeartHandshake, UserCheck, Inbox, ChevronRight,
 } from "lucide-react";
-import { useStore, personById, allGroups } from "../state/store";
-import { people, categories, Thread } from "../data/mock";
+import { useStore, personById, allGroups, registerDynamicUser } from "../state/store";
+import { categories, Thread, Person } from "../data/mock";
+import { api } from "../services/api";
 import { Btn, EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Switch, Tag } from "../components/ui";
 
 /* ================= DISCUSSION BOARD ================= */
@@ -351,9 +352,50 @@ export function GroupDetailScreen({ id }: { id: string }) {
 /* ================= MENTORSHIP ================= */
 export function MentorshipScreen() {
   const { role, pop, mentorReq, requestMentor, mentorOptIn, setMentorOptIn, goTab, push, toast } = useStore();
-  const mentors = people.filter((p) => p.mentor);
+  const [mentors, setMentors] = useState<Person[]>([]);
+  const [loading, setLoading] = useState(true);
   const [sheetFor, setSheetFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    api.getMentors()
+      .then((res) => {
+        setLoading(false);
+        if (res.success && Array.isArray(res.data?.items)) {
+          const mapped: Person[] = res.data.items.map((m: any) => {
+            const u = m.user || {};
+            const al = u.alumniDetails || {};
+            const p: Person = {
+              id: m.userId || u.id || m.id,
+              name: u.name || "Alumni Mentor",
+              role: "alumni",
+              headline: al.designation
+                ? `${al.designation} @ ${al.currentCompany || "Enterprise"}`
+                : `${al.branch || "CSE"} Batch ${al.batch || "2020"} · Alumni Mentor`,
+              branch: al.branch || "CSE",
+              batch: al.batch || "2020",
+              company: al.currentCompany,
+              city: u.city || "Jaipur",
+              about: m.bio || "Available for 1-on-1 mentorship and guidance.",
+              color: "#0F2A5E",
+              mentor: true,
+              domains: m.domains || ["Placements", "Career Guidance"],
+              mentees: m.activeMenteesCount || 0,
+            };
+            registerDynamicUser(p);
+            return p;
+          });
+          setMentors(mapped);
+        } else {
+          setMentors([]);
+        }
+      })
+      .catch(() => {
+        setLoading(false);
+        setMentors([]);
+      });
+  }, []);
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar bg-page pb-10">
@@ -386,26 +428,14 @@ export function MentorshipScreen() {
               {mentorOptIn && (
                 <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
                   <h3 className="mb-3 mt-6 font-display text-[17px] font-semibold text-ink">Incoming requests</h3>
-                  <div className="space-y-3">
-                    {["Vikram Singh", "Rohan Khanna"].map((n) => (
-                      <div key={n} className="card flex items-center gap-3 p-3.5">
-                        <InitialsAvatar name={n} size={44} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-bold text-ink">{n}</p>
-                          <p className="truncate text-[12px] text-sub">Wants guidance in placements</p>
-                        </div>
-                        <button onClick={() => toast(`Accepted ${n.split(" ")[0]} as mentee ✓`)} className="btn-press flex h-9 w-9 items-center justify-center rounded-lg bg-navy text-white"><Check size={16} /></button>
-                        <button onClick={() => toast("Request declined")} className="btn-press flex h-9 w-9 items-center justify-center rounded-lg bg-page text-sub"><X size={16} /></button>
-                      </div>
-                    ))}
+                  <div className="card p-4 text-center">
+                    <p className="text-[13px] text-sub font-medium">No pending mentorship requests at this time.</p>
                   </div>
                   <h3 className="mb-3 mt-6 font-display text-[17px] font-semibold text-ink">My Mentees</h3>
                   <div className="card p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex -space-x-2.5">
-                        {["Ishita Agarwal", "Vikram Singh"].map((n) => <InitialsAvatar key={n} name={n} size={36} className="ring-2 ring-white" />)}
-                      </div>
-                      <p className="flex-1 text-[13px] font-semibold text-ink">2 active mentees</p>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-navy-50 text-navy font-bold text-[13px]">0</span>
+                      <p className="flex-1 text-[13px] font-semibold text-ink">0 active mentees</p>
                       <Btn variant="outline" className="!h-9 !px-3.5 !text-[12px]" onClick={() => goTab("chat")}>Open chats</Btn>
                     </div>
                   </div>
@@ -428,7 +458,7 @@ export function MentorshipScreen() {
               {mentors.filter((m) => (mentorReq[m.id] ?? "none") !== "none").length === 0 && (
                 <div className="card flex items-center gap-3 p-4">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy-50 text-navy"><HeartHandshake size={18} /></span>
-                  <p className="text-[13px] font-medium text-sub">No requests yet — pick a mentor below.</p>
+                  <p className="text-[13px] font-medium text-sub">No requests yet — choose an alumni mentor below.</p>
                 </div>
               )}
               {mentors.filter((m) => (mentorReq[m.id] ?? "none") !== "none").map((m) => {
@@ -449,38 +479,50 @@ export function MentorshipScreen() {
             </div>
 
             <h3 className="mb-3 mt-6 font-display text-[17px] font-semibold text-ink">Mentor directory</h3>
-            <div className="space-y-3">
-              {mentors.map((m, i) => {
-                const st = mentorReq[m.id] ?? "none";
-                return (
-                  <motion.div key={m.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="card p-4">
-                    <div className="flex items-start gap-3">
-                      <InitialsAvatar name={m.name} size={50} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[15px] font-bold text-ink">{m.name}</p>
-                        <p className="truncate text-[12.5px] text-sub">{m.headline}</p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {(m.domains ?? []).slice(0, 3).map((d) => <Tag key={d} tone="peri">{d}</Tag>)}
+            {loading ? (
+              <ListSkeleton rows={3} />
+            ) : mentors.length === 0 ? (
+              <EmptyState
+                icon={<GraduationCap size={36} />}
+                title="No Alumni Mentors Available"
+                copy="Verified alumni mentors will appear here as soon as they enable mentor mode. You can connect with alumni directly in the Directory."
+                cta="Explore Directory"
+                onCta={() => goTab("directory")}
+              />
+            ) : (
+              <div className="space-y-3">
+                {mentors.map((m, i) => {
+                  const st = mentorReq[m.id] ?? "none";
+                  return (
+                    <motion.div key={m.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="card p-4">
+                      <div className="flex items-start gap-3">
+                        <InitialsAvatar name={m.name} size={50} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[15px] font-bold text-ink">{m.name}</p>
+                          <p className="truncate text-[12.5px] text-sub">{m.headline}</p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {(m.domains ?? []).slice(0, 3).map((d) => <Tag key={d} tone="peri">{d}</Tag>)}
+                          </div>
                         </div>
+                        <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-sub/70"><GraduationCap size={11} /> {m.mentees}</span>
                       </div>
-                      <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-sub/70"><GraduationCap size={11} /> {m.mentees}</span>
-                    </div>
-                    <div className="mt-3.5 flex gap-2">
-                      <Btn variant="outline" className="h-10 flex-1 !text-[13px]" onClick={() => push({ name: "profile", id: m.id })}>Profile</Btn>
-                      {st === "none" ? (
-                        <Btn variant="gold" className="h-10 flex-1 !text-[13px]" onClick={() => { setSheetFor(m.id); setNote(""); }}>
-                          Request mentorship
-                        </Btn>
-                      ) : (
-                        <span className={`flex h-10 flex-1 items-center justify-center gap-1 rounded-xl text-[13px] font-bold ${st === "active" ? "bg-[#E3F6EE] text-[#1F8A64]" : "bg-page text-sub"}`}>
-                          {st === "active" ? <><Check size={15} /> Mentor</> : "Requested"}
-                        </span>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                      <div className="mt-3.5 flex gap-2">
+                        <Btn variant="outline" className="h-10 flex-1 !text-[13px]" onClick={() => push({ name: "profile", id: m.id })}>Profile</Btn>
+                        {st === "none" ? (
+                          <Btn variant="gold" className="h-10 flex-1 !text-[13px]" onClick={() => { setSheetFor(m.id); setNote(""); }}>
+                            Request mentorship
+                          </Btn>
+                        ) : (
+                          <span className={`flex h-10 flex-1 items-center justify-center gap-1 rounded-xl text-[13px] font-bold ${st === "active" ? "bg-[#E3F6EE] text-[#1F8A64]" : "bg-page text-sub"}`}>
+                            {st === "active" ? <><Check size={15} /> Mentor</> : "Requested"}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

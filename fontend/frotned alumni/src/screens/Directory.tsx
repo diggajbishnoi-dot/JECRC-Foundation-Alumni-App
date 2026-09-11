@@ -372,6 +372,8 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
   const [editForm, setEditForm] = useState({
     name: p.name,
     headline: p.headline,
+    branch: p.branch || "CSE",
+    batch: p.batch || "2026",
     company: p.company || "",
     city: p.city,
     about: p.about,
@@ -381,6 +383,8 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
     setEditForm({
       name: p.name,
       headline: p.headline,
+      branch: p.branch || "CSE",
+      batch: p.batch || "2026",
       company: p.company || "",
       city: p.city,
       about: p.about,
@@ -473,6 +477,8 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                         setEditForm({
                           name: p.name,
                           headline: p.headline,
+                          branch: p.branch || "CSE",
+                          batch: p.batch || "2026",
                           company: p.company || "",
                           city: p.city,
                           about: p.about,
@@ -636,10 +642,14 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
           onSubmit={(e) => {
             e.preventDefault();
             if (isMe) {
+              const updatedBranch = editForm.branch.trim() || me.branch;
+              const updatedBatch = editForm.batch.trim() || me.batch;
               setMe({
                 ...me,
                 name: editForm.name.trim() || me.name,
                 headline: editForm.headline.trim() || me.headline,
+                branch: updatedBranch,
+                batch: updatedBatch,
                 company: editForm.company.trim(),
                 city: editForm.city.trim() || me.city,
                 about: editForm.about.trim() || me.about,
@@ -671,6 +681,36 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
               placeholder="e.g. Senior Software Engineer @ Zomato"
               required
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Branch</label>
+              <select
+                value={editForm.branch}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, branch: e.target.value }))}
+                className="input w-full"
+              >
+                {["CSE", "IT", "ECE", "EE", "ME", "Civil", "AI & DS"].map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">{p.role === "alumni" ? "Batch Year" : "Passout Year"}</label>
+              <select
+                value={editForm.batch}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, batch: e.target.value }))}
+                className="input w-full"
+              >
+                {p.role === "alumni"
+                  ? Array.from({ length: 22 }, (_, i) => `${2025 - i}`).map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))
+                  : ["2024", "2025", "2026", "2027", "2028", "2029", "2030"].map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

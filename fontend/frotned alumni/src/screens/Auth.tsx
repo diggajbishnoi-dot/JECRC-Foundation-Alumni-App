@@ -269,14 +269,8 @@ export default function AuthFlow() {
       const res = await api.verifyOtp(reg.email, otp);
       setLoading(false);
       if (res.success) {
-        completeRegister({
-          name: reg.name,
-          email: reg.email,
-          role: roleSel,
-          branch: reg.branch,
-          detail: roleSel === "alumni" ? reg.batch : reg.passout,
-        });
-        toast(`Welcome to the JECRC network, ${reg.name.split(" ")[0] || "friend"}!`);
+        toast(`Email verified! Now set up your profile.`);
+        setScreen("details");
       } else {
         setErrors({ otp: res.error || "Invalid OTP entered. Please check your email." });
       }
@@ -287,12 +281,16 @@ export default function AuthFlow() {
   };
 
   const submitDetails = async () => {
+    const detail = roleSel === "alumni" ? reg.batch : reg.passout;
     completeRegister({
       name: reg.name,
       email: reg.email,
       role: roleSel,
       branch: reg.branch,
-      detail: roleSel === "alumni" ? reg.batch : reg.passout,
+      detail,
+      city: reg.city,
+      company: reg.company,
+      title: reg.title,
     });
     toast(`Welcome to the JECRC network, ${reg.name.split(" ")[0] || "friend"}!`);
   };
