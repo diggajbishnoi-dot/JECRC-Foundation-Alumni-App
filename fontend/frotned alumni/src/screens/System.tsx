@@ -18,29 +18,65 @@ const notifIcons = {
 
 /* ================= NOTIFICATIONS ================= */
 export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
-  const { notifList, markNotif, markAllNotifs, pop } = useStore();
+  const { notifList, markNotif, markAllNotifs, pop, push, acceptConn, rejectConn, conn, received } = useStore();
+  const [actingId, setActingId] = useState<string | null>(null);
   const groups = ["Today", "This Week", "Earlier"] as const;
+
+  const handleAccept = (e: React.MouseEvent, userId: string, notifId: string) => {
+    e.stopPropagation();
+    setActingId(userId);
+    markNotif(notifId);
+    setTimeout(() => {
+      acceptConn(userId);
+      setActingId(null);
+    }, 400);
+  };
+
+  const handleReject = (e: React.MouseEvent, userId: string, notifId: string) => {
+    e.stopPropagation();
+    markNotif(notifId);
+    rejectConn(userId);
+  };
+
+  const handleOpenChat = (e: React.MouseEvent, userId: string, notifId: string) => {
+    e.stopPropagation();
+    markNotif(notifId);
+    push({ name: "chatRoom", id: `c_${userId}` });
+  };
+
+  const handleOpenProfile = (userId?: string) => {
+    if (userId) {
+      push({ name: "profile", id: userId });
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar bg-page pb-32">
       {embedded ? (
         <div className="flex items-center justify-between px-5 pb-1 pt-3">
-          <h1 className="font-display text-[24px] font-bold tracking-tight text-ink">Notifications</h1>
-          <button onClick={markAllNotifs} className="btn-press flex items-center gap-1.5 text-[12.5px] font-bold text-navy">
+          <div>
+            <h1 className="font-display text-[24px] font-bold tracking-tight text-ink">Updates &amp; Alerts</h1>
+            <p className="text-[12px] text-sub">Connection requests, network updates &amp; alerts</p>
+          </div>
+          <button onClick={markAllNotifs} className="btn-press flex items-center gap-1.5 text-[12.5px] font-bold text-navy cursor-pointer">
             <CheckCheck size={15} /> Mark all read
           </button>
         </div>
       ) : (
-        <ScreenHeader title="Notifications" onBack={pop} right={
-          <button onClick={markAllNotifs} className="btn-press mr-2 flex items-center gap-1 text-[12px] font-bold text-navy">
-            <CheckCheck size={14} /> All read
-          </button>
-        } />
+        <ScreenHeader
+          title="Updates & Notifications"
+          onBack={pop}
+          right={
+            <button onClick={markAllNotifs} className="btn-press mr-2 flex items-center gap-1 text-[12px] font-bold text-navy cursor-pointer">
+              <CheckCheck size={14} /> All read
+            </button>
+          }
+        />
       )}
 
       <div className="px-5 pt-3">
-        {notifList.every((n) => n.read) && (
-          <EmptyState icon={<BellOff size={32} />} title="All caught up" copy="New connections, job matches and Alumni Meet updates will land here." />
+        {notifList.length === 0 && (
+          <EmptyState icon={<BellOff size={32} />} title="All caught up" copy="New connections, job matches and Alumni updates will appear here." />
         )}
         {groups.map((g) => {
           const items = notifList.filter((n) => n.group === g);
@@ -48,32 +84,104 @@ export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
           return (
             <div key={g} className="mb-6">
               <h3 className="mb-2.5 text-[11.5px] font-bold uppercase tracking-[0.14em] text-sub/60">{g}</h3>
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {items.map((n, i) => {
-                  const ic = notifIcons[n.icon];
+                  const ic = notifIcons[n.icon] || notifIcons.connect;
+                  const isConnReq = n.type === "connection_request" || (n.icon === "connect" && n.userId && (received.includes(n.userId) || conn[n.userId] !== "connected"));
+                  const isConnected = n.userId && (conn[n.userId] === "connected" || n.type === "connection_accepted");
+                  const person = n.userId ? personById(n.userId) : null;
+
                   return (
-                    <motion.button
+                    <motion.div
                       key={n.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => markNotif(n.id)}
-                      className={`flex w-full items-start gap-3 rounded-2xl p-3.5 text-left transition-colors ${n.read ? "bg-white" : "bg-navy-50"}`}
-                      style={{ boxShadow: n.read ? "none" : "0 2px 10px rgba(15,42,94,0.05)" }}
+                      transition={{ delay: i * 0.03 }}
+                      onClick={() => {
+                        markNotif(n.id);
+                        if (n.userId) handleOpenProfile(n.userId);
+                      }}
+                      className={`relative flex flex-col gap-2.5 rounded-2xl p-4 transition-all cursor-pointer ${
+                        n.read ? "bg-white border border-line/60" : "bg-white border-2 border-navy/20 shadow-[0_4px_16px_rgba(15,42,94,0.06)]"
+                      }`}
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: ic.tint, color: ic.color }}>
-                        <ic.icon size={17} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-[13.5px] leading-snug ${n.read ? "font-semibold text-ink/80" : "font-bold text-ink"}`}>{n.title}</p>
-                        <p className="mt-0.5 line-clamp-1 text-[12px] text-sub">{n.body}</p>
+                      <div className="flex items-start gap-3.5">
+                        {person ? (
+                          <div className="relative shrink-0">
+                            <InitialsAvatar name={person.name} size={42} />
+                            <span
+                              className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white text-[10px]"
+                              style={{ background: ic.tint, color: ic.color }}
+                            >
+                              <ic.icon size={11} />
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                            style={{ background: ic.tint, color: ic.color }}
+                          >
+                            <ic.icon size={18} />
+                          </span>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-[13.5px] leading-snug ${n.read ? "font-semibold text-ink/90" : "font-bold text-navy"}`}>
+                              {n.title}
+                            </p>
+                            <span className="shrink-0 text-[10.5px] font-medium text-sub/60">{n.ago}</span>
+                          </div>
+                          <p className="mt-0.5 text-[12.5px] text-sub leading-snug">{n.body}</p>
+                        </div>
+                        {!n.read && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-gold" />}
                       </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <span className="text-[10.5px] font-medium text-sub/60">{n.ago}</span>
-                        {!n.read && <span className="h-2 w-2 rounded-full bg-gold" />}
-                      </div>
-                    </motion.button>
+
+                      {/* Action buttons for Connection Request / Chat */}
+                      {n.userId && (
+                        <div className="mt-1 flex items-center gap-2 pt-2 border-t border-line/50">
+                          {isConnected ? (
+                            <div className="flex w-full items-center justify-between">
+                              <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1F8A64]">
+                                <Check size={14} strokeWidth={3} /> Connected
+                              </span>
+                              <button
+                                onClick={(e) => handleOpenChat(e, n.userId!, n.id)}
+                                className="btn-press flex items-center gap-1.5 rounded-xl bg-navy px-3.5 py-1.5 text-[12px] font-bold text-white shadow-sm cursor-pointer"
+                              >
+                                <MessageCircle size={13} /> Chat Now
+                              </button>
+                            </div>
+                          ) : isConnReq ? (
+                            <div className="flex w-full items-center gap-2">
+                              <button
+                                disabled={actingId === n.userId}
+                                onClick={(e) => handleAccept(e, n.userId!, n.id)}
+                                className="btn-press flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-navy py-2 text-[12.5px] font-bold text-white shadow-sm hover:bg-navy-600 transition-colors cursor-pointer"
+                              >
+                                <Check size={14} strokeWidth={2.5} /> Accept Request
+                              </button>
+                              <button
+                                onClick={(e) => handleReject(e, n.userId!, n.id)}
+                                className="btn-press flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-page text-sub hover:bg-rose-50 hover:text-rose transition-colors cursor-pointer"
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenProfile(n.userId);
+                              }}
+                              className="btn-press text-[12px] font-bold text-navy hover:underline cursor-pointer"
+                            >
+                              View Profile →
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
                   );
                 })}
               </div>

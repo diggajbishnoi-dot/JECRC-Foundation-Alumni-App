@@ -50,23 +50,14 @@ function Toasts() {
 }
 
 /* ---------------- nav config ---------------- */
-function navItems(role: string, chatBadge: number, notifBadge: number) {
-  const base: { id: Tab; icon: typeof House; label: string; badge?: number }[] =
-    role === "student"
-      ? [
-          { id: "home", icon: House, label: "Home" },
-          { id: "directory", icon: Users, label: "Directory" },
-          { id: "chat", icon: MessageCircle, label: "Chats", badge: chatBadge },
-          { id: "alerts", icon: Bell, label: "Updates", badge: notifBadge },
-          { id: "profile", icon: CircleUserRound, label: "Profile" },
-        ]
-      : [
-          { id: "home", icon: House, label: "Home" },
-          { id: "directory", icon: Users, label: "Directory" },
-          { id: "post", icon: Plus, label: "Post" },
-          { id: "chat", icon: MessageCircle, label: "Chats", badge: chatBadge },
-          { id: "profile", icon: CircleUserRound, label: "Profile" },
-        ];
+function navItems(_role: string, chatBadge: number, notifBadge: number) {
+  const base: { id: Tab; icon: typeof House; label: string; badge?: number }[] = [
+    { id: "home", icon: House, label: "Home" },
+    { id: "directory", icon: Users, label: "Directory" },
+    { id: "chat", icon: MessageCircle, label: "Chats", badge: chatBadge },
+    { id: "alerts", icon: Bell, label: "Updates", badge: notifBadge },
+    { id: "profile", icon: CircleUserRound, label: "Profile" },
+  ];
   return base;
 }
 

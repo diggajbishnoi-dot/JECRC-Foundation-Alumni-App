@@ -219,6 +219,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     api.getPendingRequests().then((res) => {
       if (res.success && Array.isArray(res.data)) {
         const receivedIds: string[] = [];
+        const pendingNotifs: Notif[] = [];
         res.data.forEach((item: any) => {
           const reqUser = item.requester;
           if (reqUser?.id) {
@@ -240,9 +241,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               color: reqUser.role === "ALUMNI" ? "#0F2A5E" : "#2563EB",
             };
             registerDynamicUser(mappedPerson);
+
+            pendingNotifs.push({
+              id: `req_${item.id}`,
+              group: "Today",
+              title: "Connection Request",
+              body: `${reqUser.name} (${mappedPerson.branch} '${mappedPerson.batch ? mappedPerson.batch.slice(-2) : "25"}) sent you a connection request.`,
+              icon: "connect",
+              read: false,
+              ago: "Pending",
+              userId: reqUser.id,
+              connectionId: item.id,
+              type: "connection_request",
+            });
           }
         });
         setReceived(receivedIds);
+
+        if (pendingNotifs.length > 0) {
+          setNotifList((prev) => {
+            const existingMap = new Map(prev.map((n) => [n.id, n]));
+            pendingNotifs.forEach((pn) => {
+              const existing = existingMap.get(pn.id);
+              if (existing) {
+                existingMap.set(pn.id, { ...pn, read: existing.read });
+              } else {
+                existingMap.set(pn.id, pn);
+              }
+            });
+            return Array.from(existingMap.values());
+          });
+        }
       }
     }).catch(() => {});
 
@@ -274,6 +303,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         });
         setSent(sentIds);
+      }
+    }).catch(() => {});
+
+    // 4. Fetch Backend In-App Notifications
+    api.getNotifications().then((res) => {
+      if (res.success && res.data?.items && Array.isArray(res.data.items)) {
+        const dynamicNotifs: Notif[] = [];
+        res.data.items.forEach((item: any) => {
+          if (item.type === "CONNECTION_ACCEPTED") {
+            const accepterId = item.payload?.acceptedByUserId;
+            const p = accepterId ? personById(accepterId) : null;
+            dynamicNotifs.push({
+              id: `notif_${item.id}`,
+              group: "Today",
+              title: "Connection Accepted! 🎉",
+              body: `${p?.name || "A fellow member"} accepted your connection request. Say hi in chat!`,
+              icon: "connect",
+              read: item.isRead,
+              ago: "Recently",
+              userId: accepterId,
+              connectionId: item.payload?.connectionId,
+              type: "connection_accepted",
+            });
+          }
+        });
+
+        if (dynamicNotifs.length > 0) {
+          setNotifList((prev) => {
+            const existingMap = new Map(prev.map((n) => [n.id, n]));
+            dynamicNotifs.forEach((dn) => {
+              if (!existingMap.has(dn.id)) {
+                existingMap.set(dn.id, dn);
+              }
+            });
+            return Array.from(existingMap.values());
+          });
+        }
       }
     }).catch(() => {});
   }, []);
@@ -427,6 +493,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async (userId: string) => {
       setConn((c) => ({ ...c, [userId]: "connected" }));
       setReceived((r) => r.filter((x) => x !== userId));
+      setNotifList((ns) =>
+        ns.map((n) =>
+          n.userId === userId
+            ? {
+                ...n,
+                read: true,
+                type: "connection_accepted",
+                title: "Connected",
+                body: `You are now connected with ${personById(userId).name}. Chat is unlocked.`,
+              }
+            : n
+        )
+      );
       unlockChat(userId);
       toast("Connected! Chat unlocked");
       const connectionId = connIdMap.current[userId] || userId;
@@ -442,6 +521,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async (userId: string) => {
       setConn((c) => ({ ...c, [userId]: "none" }));
       setReceived((r) => r.filter((x) => x !== userId));
+      setNotifList((ns) => ns.filter((n) => n.userId !== userId));
       toast("Request declined");
       const connectionId = connIdMap.current[userId] || userId;
       try {
@@ -663,9 +743,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const markNotif = useCallback((id: string) => {
     setNotifList((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    const rawId = id.replace("notif_", "").replace("req_", "");
+    api.markNotificationRead(rawId).catch(() => {});
   }, []);
   const markAllNotifs = useCallback(() => {
     setNotifList((ns) => ns.map((n) => ({ ...n, read: true })));
+    api.markAllNotificationsRead().catch(() => {});
   }, []);
 
   const updateProfile = useCallback(

@@ -325,6 +325,34 @@ class ApiService {
       method: 'PATCH',
     });
   }
+
+  // In-app Notifications
+  async getNotifications(page = 1, limit = 20) {
+    return await this.request<{
+      items: Array<{
+        id: string;
+        userId: string;
+        type: string;
+        payload: any;
+        isRead: boolean;
+        createdAt: string;
+      }>;
+      unreadCount: number;
+      meta: { total: number; page: number; limit: number; totalPages: number };
+    }>(`/notifications?page=${page}&limit=${limit}`);
+  }
+
+  async markNotificationRead(notificationId: string) {
+    return await this.request(`/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+    });
+  }
+
+  async markAllNotificationsRead() {
+    return await this.request('/notifications/read-all', {
+      method: 'PATCH',
+    });
+  }
 }
 
 export const api = new ApiService();

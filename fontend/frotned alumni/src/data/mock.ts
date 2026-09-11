@@ -62,6 +62,9 @@ export interface Notif {
   icon: "connect" | "job" | "mentor" | "event" | "group" | "chat";
   read: boolean;
   ago: string;
+  userId?: string;
+  connectionId?: string;
+  type?: "connection_request" | "connection_accepted" | "general";
 }
 
 export const people: Person[] = [

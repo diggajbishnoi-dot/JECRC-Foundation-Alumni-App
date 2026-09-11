@@ -30,7 +30,7 @@ function HomeHeader() {
       <div className="flex items-center gap-2">
         <JecrcLogo className="h-7 w-auto max-w-[90px] object-contain opacity-90 hidden sm:block" />
         <button
-          onClick={() => (role === "student" ? goTab("alerts") : push({ name: "notifications" }))}
+          onClick={() => goTab("alerts")}
           className="btn-press relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink shadow-[0_2px_10px_rgba(15,42,94,0.08)] cursor-pointer"
         >
           <Bell size={19} />
