@@ -7,19 +7,19 @@ export declare class UsersController {
         totalConnections: number;
         totalPosts: number;
         studentDetails: {
-            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             branch: string;
             currentYear: number;
             expectedPassoutYear: number;
         };
         alumniDetails: {
-            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             branch: string;
             batch: string;
             passoutYear: number;
@@ -27,18 +27,18 @@ export declare class UsersController {
             designation: string;
         };
         mentorProfile: {
-            userId: string;
             id: string;
             bio: string | null;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             domains: string[];
             availability: string;
             maxMentees: number;
             isActive: boolean;
         };
-        email: string | null;
         id: string;
+        email: string | null;
         mobile: string | null;
         name: string;
         role: import(".prisma/client").$Enums.Role;
@@ -51,29 +51,33 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
     }>;
+    heartbeat(userId: string): Promise<{
+        success: boolean;
+        timestamp: string;
+    }>;
     updateMe(userId: string, dto: UpdateProfileDto): Promise<{
         studentDetails: {
-            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             branch: string;
             currentYear: number;
             expectedPassoutYear: number;
         };
         alumniDetails: {
-            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             branch: string;
             batch: string;
             passoutYear: number;
             currentCompany: string;
             designation: string;
         };
-        email: string | null;
         id: string;
+        email: string | null;
         mobile: string | null;
         name: string;
         role: import(".prisma/client").$Enums.Role;
@@ -100,33 +104,33 @@ export declare class UsersController {
     }>;
     searchUsers(query: SearchUsersQueryDto): Promise<{
         items: {
+            id: string;
+            email: string;
+            name: string;
+            role: import(".prisma/client").$Enums.Role;
+            profilePicUrl: string;
+            bio: string;
+            city: string;
             studentDetails: {
-                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                userId: string;
                 branch: string;
                 currentYear: number;
                 expectedPassoutYear: number;
             };
             alumniDetails: {
-                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                userId: string;
                 branch: string;
                 batch: string;
                 passoutYear: number;
                 currentCompany: string;
                 designation: string;
             };
-            email: string;
-            id: string;
-            name: string;
-            role: import(".prisma/client").$Enums.Role;
-            profilePicUrl: string;
-            bio: string;
-            city: string;
         }[];
         meta: {
             total: number;
@@ -142,6 +146,7 @@ export declare class UsersController {
     getPresence(targetId: string, currentUserId: string): Promise<{
         userId: string;
         status: string;
+        online: boolean;
         lastSeen: string;
     }>;
     getUserById(targetId: string, currentUserId: string): Promise<{
@@ -152,19 +157,19 @@ export declare class UsersController {
         city: string;
         bio: string;
         studentDetails: {
-            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             branch: string;
             currentYear: number;
             expectedPassoutYear: number;
         };
         alumniDetails: {
-            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             branch: string;
             batch: string;
             passoutYear: number;
@@ -172,11 +177,11 @@ export declare class UsersController {
             designation: string;
         };
         mentorProfile: {
-            userId: string;
             id: string;
             bio: string | null;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             domains: string[];
             availability: string;
             maxMentees: number;

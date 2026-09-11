@@ -20,26 +20,32 @@ function Ticks({ status }: { status: ChatMsg["status"] }) {
 
 /* ============== CHAT LIST ============== */
 export function ChatListScreen() {
-  const { chats, push, setActiveChat, syncMessages } = useStore();
+  const { chats, push, setActiveChat, syncMessages, syncPresence } = useStore();
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    // Sync all chats
+    // Sync all chats & presences
     chats.forEach((c) => {
-      if (c.userId) syncMessages(c.userId);
+      if (c.userId) {
+        syncMessages(c.userId);
+        syncPresence(c.userId);
+      }
     });
     const t = setTimeout(() => setLoading(false), 500);
     const interval = setInterval(() => {
       chats.forEach((c) => {
-        if (c.userId) syncMessages(c.userId);
+        if (c.userId) {
+          syncMessages(c.userId);
+          syncPresence(c.userId);
+        }
       });
     }, 4000);
     return () => {
       clearTimeout(t);
       clearInterval(interval);
     };
-  }, [chats.length, syncMessages]);
+  }, [chats.length, syncMessages, syncPresence]);
 
   const filtered = chats.filter((c) => personById(c.userId).name.toLowerCase().includes(q.toLowerCase()));
 
@@ -84,8 +90,8 @@ export function ChatListScreen() {
                   >
                     <div className="relative">
                       <InitialsAvatar name={p.name} size={52} />
-                      {!c.locked && (
-                        <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-[2.5px] ring-page ${c.online ? "bg-mint" : "bg-line"}`} />
+                      {!c.locked && c.online && (
+                        <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-[2.5px] ring-page bg-mint" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -123,8 +129,8 @@ export function ChatListScreen() {
 
 /* ============== CHAT ROOM ============== */
 export function ChatRoomScreen({ id }: { id: string }) {
-  const { pop, chats, sendChat, syncMessages, typing } = useStore();
-  const chat = chats.find((c) => c.id === id || c.userId === id) || { id, userId: id, online: true, unread: 0, msgs: [] };
+  const { pop, chats, sendChat, syncMessages, syncPresence, typing } = useStore();
+  const chat = chats.find((c) => c.id === id || c.userId === id) || { id, userId: id, online: false, lastSeen: "Offline", unread: 0, msgs: [] };
   const p = personById(chat.userId);
   const [text, setText] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
@@ -135,13 +141,15 @@ export function ChatRoomScreen({ id }: { id: string }) {
   useEffect(() => {
     if (chat.userId) {
       syncMessages(chat.userId);
+      syncPresence(chat.userId);
       api.markMessagesRead(chat.userId).catch(() => {});
       const poll = setInterval(() => {
         syncMessages(chat.userId);
-      }, 2000);
+        syncPresence(chat.userId);
+      }, 2500);
       return () => clearInterval(poll);
     }
-  }, [chat.userId, syncMessages]);
+  }, [chat.userId, syncMessages, syncPresence]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -180,9 +188,13 @@ export function ChatRoomScreen({ id }: { id: string }) {
               <motion.p key="t" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11.5px] font-medium text-gold">
                 typing…
               </motion.p>
+            ) : chat.online ? (
+              <motion.p key="online" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-[11.5px] font-medium text-mint">
+                <span className="h-2 w-2 rounded-full bg-mint animate-pulse" /> Online
+              </motion.p>
             ) : (
-              <motion.p key="o" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11.5px] text-white/60">
-                {chat.online ? "Online" : "Last seen 2h ago"}
+              <motion.p key="offline" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11.5px] text-white/60">
+                {chat.lastSeen || "Offline"}
               </motion.p>
             )}
           </AnimatePresence>

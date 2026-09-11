@@ -37,6 +37,12 @@ export class UsersController {
     return await this.usersService.getMe(userId);
   }
 
+  @Post('me/heartbeat')
+  @ApiOperation({ summary: 'Ping active presence heartbeat' })
+  async heartbeat(@CurrentUser('id') userId: string) {
+    return await this.usersService.heartbeat(userId);
+  }
+
   @Patch('me')
   @ApiOperation({ summary: 'Update profile details' })
   async updateMe(

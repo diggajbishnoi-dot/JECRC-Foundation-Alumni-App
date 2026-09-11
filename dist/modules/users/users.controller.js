@@ -28,6 +28,9 @@ let UsersController = class UsersController {
     async getMe(userId) {
         return await this.usersService.getMe(userId);
     }
+    async heartbeat(userId) {
+        return await this.usersService.heartbeat(userId);
+    }
     async updateMe(userId, dto) {
         return await this.usersService.updateMe(userId, dto);
     }
@@ -65,6 +68,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getMe", null);
+__decorate([
+    (0, common_1.Post)('me/heartbeat'),
+    (0, swagger_1.ApiOperation)({ summary: 'Ping active presence heartbeat' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "heartbeat", null);
 __decorate([
     (0, common_1.Patch)('me'),
     (0, swagger_1.ApiOperation)({ summary: 'Update profile details' }),

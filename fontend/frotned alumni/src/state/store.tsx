@@ -21,6 +21,7 @@ export interface Chat {
   id: string;
   userId: string;
   online: boolean;
+  lastSeen?: string;
   unread: number;
   locked?: boolean;
   msgs: ChatMsg[];
@@ -69,6 +70,7 @@ interface Store {
   setActiveChat: (id: string | null) => void;
   sendChat: (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => void;
   syncMessages: (userId: string) => Promise<void>;
+  syncPresence: (userId: string) => Promise<void>;
   typing: Record<string, boolean>;
   unlockChat: (userId: string) => void;
   // jobs
@@ -189,7 +191,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         });
 
-        // Initialize active chats for all accepted connections
+        // Initialize active chats for all accepted connections (defaults to offline until presence check)
         setChats((prev) => {
           const nextChats = [...prev];
           peerList.forEach((peer) => {
@@ -198,7 +200,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               nextChats.push({
                 id: `c_${peer.id}`,
                 userId: peer.id,
-                online: true,
+                online: false,
+                lastSeen: "Offline",
                 unread: 0,
                 locked: false,
                 msgs: [],
@@ -373,8 +376,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    const heartbeat = () => {
+      if (api.getToken()) {
+        api.heartbeat().catch(() => {});
+      }
+    };
+    heartbeat();
+    const heartbeatTimer = setInterval(heartbeat, 25000);
+
     return () => {
       clearInterval(pollTimer);
+      clearInterval(heartbeatTimer);
       window.removeEventListener("focus", onFocus);
     };
   }, [syncConnections]);
@@ -474,7 +486,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 {
                   id: chatId,
                   userId,
-                  online: true,
+                  online: false,
+                  lastSeen: "Offline",
                   unread: 0,
                   locked: false,
                   msgs: formattedMsgs,
@@ -487,6 +500,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     [me.id]
   );
+
+  const syncPresence = useCallback(async (userId: string) => {
+    if (!api.getToken() || !userId) return;
+    try {
+      const res = await api.getPresence(userId);
+      if (res.success && res.data) {
+        const isOnline = res.data.online ?? (res.data.status === "online");
+        const lastSeen = res.data.lastSeen || (isOnline ? "Online" : "Offline");
+        setChats((prev) =>
+          prev.map((c) =>
+            c.userId === userId || c.id === `c_${userId}`
+              ? { ...c, online: isOnline, lastSeen }
+              : c
+          )
+        );
+      }
+    } catch (e) {}
+  }, []);
 
   const sendChat = useCallback(
     async (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => {
@@ -695,13 +726,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       phase, setPhase, role, setRole, me, setMe, completeRegister,
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
-      chats, activeChat, setActiveChat, sendChat, syncMessages, typing, unlockChat,
+      chats, activeChat, setActiveChat, sendChat, syncMessages, syncPresence, typing, unlockChat,
       allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
       logout, deleteAccount, updateProfile,
     }),
-    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
+    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, syncPresence, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

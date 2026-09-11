@@ -214,12 +214,21 @@ export class UsersService {
   }
 
   /**
+   * Register user active heartbeat (keeps presence online)
+   */
+  async heartbeat(userId: string) {
+    await this.redisService.set(`user:${userId}:status`, 'online', 45);
+    await this.redisService.set(`user:${userId}:last_seen`, new Date().toISOString());
+    return { success: true, timestamp: new Date().toISOString() };
+  }
+
+  /**
    * Get user presence (online/offline & last seen)
    */
   async getPresence(targetUserId: string, requestingUserId: string) {
     const targetUser = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      select: { id: true, hideLastSeen: true },
+      select: { id: true, hideLastSeen: true, updatedAt: true },
     });
 
     if (!targetUser) {
@@ -227,17 +236,38 @@ export class UsersService {
     }
 
     const isOnline = await this.redisService.isUserOnline(targetUserId);
-    let lastSeen: string | null = null;
+    let lastSeenStr: string | null = null;
 
-    // Respect privacy setting: don't reveal last seen if hidden and not self
     if (targetUserId === requestingUserId || !targetUser.hideLastSeen) {
-      lastSeen = await this.redisService.getLastSeen(targetUserId);
+      const rawLastSeen =
+        (await this.redisService.getLastSeen(targetUserId)) ||
+        targetUser.updatedAt?.toISOString() ||
+        null;
+      if (rawLastSeen && !isOnline) {
+        const diffMs = Date.now() - new Date(rawLastSeen).getTime();
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMins < 1) {
+          lastSeenStr = 'Last seen just now';
+        } else if (diffMins < 60) {
+          lastSeenStr = `Last seen ${diffMins}m ago`;
+        } else if (diffHours < 24) {
+          lastSeenStr = `Last seen ${diffHours}h ago`;
+        } else if (diffDays === 1) {
+          lastSeenStr = 'Last seen yesterday';
+        } else {
+          lastSeenStr = `Last seen ${diffDays}d ago`;
+        }
+      }
     }
 
     return {
       userId: targetUserId,
       status: isOnline ? 'online' : 'offline',
-      lastSeen,
+      online: isOnline,
+      lastSeen: isOnline ? 'Online' : lastSeenStr || 'Offline',
     };
   }
 

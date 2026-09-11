@@ -112,6 +112,14 @@ class ApiService {
     return await this.request('/users/me');
   }
 
+  async heartbeat() {
+    return await this.request('/users/me/heartbeat', { method: 'POST' });
+  }
+
+  async getPresence(userId: string) {
+    return await this.request<{ userId: string; status: 'online' | 'offline'; online: boolean; lastSeen: string }>(`/users/${userId}/presence`);
+  }
+
   async updateProfile(data: {
     name?: string;
     bio?: string;
