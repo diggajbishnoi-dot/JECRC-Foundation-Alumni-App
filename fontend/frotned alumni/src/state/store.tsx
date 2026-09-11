@@ -131,7 +131,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [conn, setConn] = useState<Record<string, "none" | "pending" | "connected">>({});
   const [received, setReceived] = useState<string[]>([]);
   const [sent, setSent] = useState<string[]>([]);
-  const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [activeChat, setActiveChatState] = useState<string | null>(null);
   const [typing] = useState<Record<string, boolean>>({});
   const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [allThreads, setAllThreads] = useState<Thread[]>([]);
@@ -152,6 +152,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   const [chats, setChats] = useState<Chat[]>([]);
+  const chatsRef = useRef<Chat[]>([]);
+  chatsRef.current = chats;
+  const knownMsgIds = useRef<Set<string>>(new Set());
 
   const activeChatRef = useRef<string | null>(null);
   activeChatRef.current = activeChat;
@@ -418,12 +421,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const pollTimer = setInterval(() => {
       if (api.getToken()) {
         syncConnections();
+        chatsRef.current.forEach((c) => {
+          if (c.userId) {
+            syncMessages(c.userId);
+            syncPresence(c.userId);
+          }
+        });
       }
-    }, 5000);
+    }, 3000);
 
     const onFocus = () => {
       if (api.getToken()) {
         syncConnections();
+        chatsRef.current.forEach((c) => {
+          if (c.userId) {
+            syncMessages(c.userId);
+            syncPresence(c.userId);
+          }
+        });
       }
     };
     window.addEventListener("focus", onFocus);
@@ -604,6 +619,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast, syncConnections]
   );
 
+  const setActiveChat = useCallback((id: string | null) => {
+    setActiveChatState(id);
+    activeChatRef.current = id;
+    if (id) {
+      setChats((cs) =>
+        cs.map((c) =>
+          c.id === id || c.userId === id || `c_${c.userId}` === id
+            ? { ...c, unread: 0 }
+            : c
+        )
+      );
+    }
+  }, []);
+
   const syncMessages = useCallback(
     async (userId: string) => {
       if (!api.getToken() || !userId) return;
@@ -651,12 +680,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             };
           });
 
+          const chatId = `c_${userId}`;
+          const isCurrentlyInThisChat = activeChatRef.current === chatId || activeChatRef.current === userId;
+
+          // Detect new incoming unread messages
+          let newUnreadCount = 0;
+          let latestIncomingText = "";
+          const peerPerson = personById(userId);
+
+          formattedMsgs.forEach((m) => {
+            if (!m.fromMe && !knownMsgIds.current.has(m.id)) {
+              knownMsgIds.current.add(m.id);
+              if (!isCurrentlyInThisChat) {
+                newUnreadCount += 1;
+                latestIncomingText = m.kind === "image" ? "📷 Sent a photo" : m.kind === "doc" ? `📄 ${m.meta?.name || "Document"}` : m.text;
+              }
+            }
+          });
+
+          // Show in-app banner toast notification for incoming messages if user is not in this chat room
+          if (!isCurrentlyInThisChat && newUnreadCount > 0 && latestIncomingText) {
+            toast(`💬 ${peerPerson.name}: ${latestIncomingText}`);
+          }
+
           setChats((prev) => {
-            const chatId = `c_${userId}`;
             const exists = prev.find((c) => c.userId === userId || c.id === chatId);
             if (exists) {
+              const updatedUnread = isCurrentlyInThisChat ? 0 : (exists.unread || 0) + newUnreadCount;
               return prev.map((c) =>
-                c.userId === userId || c.id === chatId ? { ...c, locked: false, msgs: formattedMsgs } : c
+                c.userId === userId || c.id === chatId
+                  ? { ...c, locked: false, msgs: formattedMsgs, unread: updatedUnread }
+                  : c
               );
             } else {
               return [
@@ -666,7 +720,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   userId,
                   online: false,
                   lastSeen: "Offline",
-                  unread: 0,
+                  unread: isCurrentlyInThisChat ? 0 : newUnreadCount,
                   locked: false,
                   msgs: formattedMsgs,
                 },
@@ -676,7 +730,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {}
     },
-    [me.id]
+    [me.id, toast]
   );
 
   const syncPresence = useCallback(async (userId: string) => {
