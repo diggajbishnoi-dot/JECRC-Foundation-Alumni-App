@@ -15,11 +15,14 @@ export function JobsScreen() {
   const [mode, setMode] = useState<(typeof modeFilters)[number]>("Any mode");
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 900);
     return () => clearTimeout(t);
   }, []);
+
+  const hasActiveFilters = type !== "All" || mode !== "Any mode";
 
   const results = useMemo(
     () => allJobs.filter((j) => (type === "All" || j.type === type) && (mode === "Any mode" || j.mode === mode)),
@@ -30,7 +33,27 @@ export function JobsScreen() {
     <div className="relative flex h-full flex-col bg-page">
       {/* Pinned Header & Filters */}
       <div className="shrink-0 z-20 bg-page border-b border-line/70">
-        <ScreenHeader title="Jobs & Internships" onBack={pop} right={<span className="mr-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-navy shadow-sm border border-line/50"><ListFilter size={16} /></span>} />
+        <ScreenHeader
+          title="Jobs & Internships"
+          onBack={pop}
+          right={
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setFilterSheetOpen(true)}
+              className={`relative mr-2 flex h-9 w-9 items-center justify-center rounded-full shadow-sm border transition-colors cursor-pointer ${
+                hasActiveFilters
+                  ? "bg-navy text-white border-navy"
+                  : "bg-white text-navy border-line/70 hover:bg-page"
+              }`}
+              title="Filter opportunities"
+            >
+              <ListFilter size={16} />
+              {hasActiveFilters && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 rounded-full bg-gold ring-2 ring-white" />
+              )}
+            </motion.button>
+          }
+        />
         <div className="px-4 sm:px-5 pb-3 pt-1 space-y-2">
           <div className="no-scrollbar flex gap-2 overflow-x-auto">
             {typeFilters.map((t) => (
@@ -121,6 +144,72 @@ export function JobsScreen() {
           )}
         </div>
       </div>
+
+      {/* Filter Bottom Sheet */}
+      <Sheet
+        title="Filter Opportunities"
+        open={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+      >
+        <div className="space-y-5 p-5">
+          <div>
+            <label className="block text-[13px] font-bold text-ink mb-2">Role Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {typeFilters.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setType(t)}
+                  className={`btn-press rounded-xl border-[1.5px] p-2.5 text-center text-[13px] font-semibold transition-all ${
+                    type === t
+                      ? "border-navy bg-navy text-white shadow-sm"
+                      : "border-line bg-page text-sub hover:border-navy-400"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[13px] font-bold text-ink mb-2">Work Mode</label>
+            <div className="grid grid-cols-2 gap-2">
+              {modeFilters.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`btn-press rounded-xl border-[1.5px] p-2.5 text-center text-[13px] font-semibold transition-all ${
+                    mode === m
+                      ? "border-gold bg-gold text-ink shadow-sm"
+                      : "border-line bg-page text-sub hover:border-navy-400"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-3 border-t border-line">
+            <button
+              onClick={() => {
+                setType("All");
+                setMode("Any mode");
+                toast("Filters reset");
+              }}
+              className="btn-press flex-1 rounded-xl bg-page py-3 text-[13.5px] font-bold text-sub"
+            >
+              Reset All
+            </button>
+            <button
+              onClick={() => setFilterSheetOpen(false)}
+              className="btn-press flex-1 rounded-xl bg-navy py-3 text-[13.5px] font-bold text-white shadow-md"
+            >
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      </Sheet>
     </div>
   );
 }

@@ -107,6 +107,25 @@ function QuickGrid() {
 
 function JobMiniCards() {
   const { allJobs, push } = useStore();
+  if (allJobs.length === 0) {
+    return (
+      <div
+        onClick={() => push({ name: "jobs" })}
+        className="card flex cursor-pointer items-center justify-between p-4 text-left border-dashed border-navy/20 hover:border-navy/40 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy/5 text-navy">
+            <Briefcase size={20} />
+          </div>
+          <div>
+            <p className="text-[13.5px] font-bold text-ink">No Job Postings Yet</p>
+            <p className="text-[12px] text-sub">Be the first to post or browse opportunities</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-sub/70 shrink-0" />
+      </div>
+    );
+  }
   return (
     <div className="no-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5 pb-1">
       {allJobs.slice(0, 5).map((j) => (
@@ -142,6 +161,25 @@ function JobMiniCards() {
 
 function DiscussionHighlights() {
   const { allThreads, push, upvoted, toggleUp } = useStore();
+  if (allThreads.length === 0) {
+    return (
+      <div
+        onClick={() => push({ name: "discussions" })}
+        className="card flex cursor-pointer items-center justify-between p-4 text-left border-dashed border-navy/20 hover:border-navy/40 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy/5 text-navy">
+            <MessagesSquare size={20} />
+          </div>
+          <div>
+            <p className="text-[13.5px] font-bold text-ink">No Discussions Started</p>
+            <p className="text-[12px] text-sub">Start the first conversation with alumni & students</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-sub/70 shrink-0" />
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
       {allThreads.slice(0, 3).map((t) => {

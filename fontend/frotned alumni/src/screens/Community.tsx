@@ -470,27 +470,44 @@ export function GroupDetailScreen({ id }: { id: string }) {
   return (
     <div className="flex h-full flex-col bg-page">
       <ScreenHeader title={g.tag === "Batch" ? `Batch ${g.batch}` : `${g.branch} Community`} onBack={pop} />
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-6">
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden !p-0 shadow-sm border border-line">
-          <div className="flex h-20 items-end bg-gradient-to-br from-navy to-navy-800 p-4">
-            <Tag tone="gold">{g.tag === "Batch" ? `Class of ${g.batch}` : `${g.branch} Dept`}</Tag>
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 sm:px-5 pb-6 pt-2">
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden !p-0 shadow-sm border border-line bg-white rounded-3xl">
+          {/* Header Banner */}
+          <div className="relative h-24 w-full bg-gradient-to-r from-[#0F2A5E] via-[#1A365D] to-[#2563EB] p-3.5 flex items-start justify-end overflow-hidden">
+            <div className="pointer-events-none absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px]" />
+            <Tag tone="gold" className="relative z-10 shadow-sm !text-[11px] font-bold">
+              {g.tag === "Batch" ? `Class of ${g.batch}` : `${g.branch} Dept`}
+            </Tag>
           </div>
-          <div className="relative z-10 p-4">
-            <div className="relative z-20 -mt-10 mb-2">
-              <InitialsAvatar name={g.name} size={64} rounded="rounded-2xl" className="ring-4 ring-white shadow-sm" />
+
+          {/* Card Body */}
+          <div className="relative px-5 pb-5 pt-10">
+            {/* Overlapping Avatar */}
+            <div className="absolute -top-8 left-5 z-20">
+              <InitialsAvatar name={g.name} size={58} rounded="rounded-2xl" className="ring-4 ring-white shadow-md bg-navy text-white" />
             </div>
-            <h2 className="font-display text-[19px] font-bold text-ink">{g.name}</h2>
-            <p className="mt-1 text-[12.5px] text-sub">{g.members + (isJoined ? 1 : 0)} verified members</p>
-            <p className="mt-2.5 text-[13.5px] leading-relaxed text-ink/80">{g.desc}</p>
+
+            <h2 className="font-display text-[18px] font-bold text-ink leading-tight">{g.name}</h2>
+            <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-sub font-medium">
+              <Users size={13} className="text-navy" />
+              <span>{g.members + (isJoined ? 1 : 0)} verified members</span>
+              <span className="text-line">•</span>
+              <span className="text-emerald-600 font-semibold">Official Channel</span>
+            </div>
+
+            <p className="mt-3 text-[13px] leading-relaxed text-sub/90">{g.desc}</p>
+
             <Btn
               variant={isJoined ? "outline" : "primary"}
-              className="mt-4 w-full !h-11"
+              className={`mt-4 w-full !h-11 !rounded-2xl font-bold transition-all ${
+                isJoined ? "border-emerald-600/40 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/60" : "bg-navy text-white shadow-md"
+              }`}
               onClick={() => {
                 toggleJoin(g.id);
                 toast(isJoined ? `Left “${g.name}”` : `Joined “${g.name}”`);
               }}
             >
-              {isJoined ? "Joined ✓ — Leave group" : "Join group"}
+              {isJoined ? "Joined ✓ — Member of Group" : "Join Group Now"}
             </Btn>
           </div>
         </motion.div>

@@ -154,6 +154,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const activeChatRef = useRef<string | null>(null);
   activeChatRef.current = activeChat;
 
+  const stackRef = useRef<Route[]>([]);
+  stackRef.current = stack;
+
+  const tabRef = useRef<Tab>("home");
+  tabRef.current = tab;
+
+  const historyDepthRef = useRef<number>(0);
+
+  // Handle hardware / mobile back button via popstate
+  useEffect(() => {
+    const onPopState = () => {
+      if (historyDepthRef.current > 0) {
+        historyDepthRef.current -= 1;
+      }
+      if (stackRef.current.length > 0) {
+        setStack((s) => s.slice(0, -1));
+      } else if (tabRef.current !== "home") {
+        setTab("home");
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (phase === "app") {
+      try {
+        window.history.replaceState({ appNav: true, type: "root", tab: "home" }, "");
+      } catch (e) {}
+    }
+  }, [phase]);
+
   const toast = useCallback((text: string) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, text }]);
@@ -465,13 +498,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [syncConnections]);
 
   const goTab = useCallback((t: Tab) => {
-    setStack([]);
-    setTab(t);
+    if (t !== tabRef.current) {
+      if (t !== "home" && tabRef.current === "home" && stackRef.current.length === 0) {
+        try {
+          window.history.pushState({ appNav: true, type: "tab", tab: t }, "");
+          historyDepthRef.current += 1;
+        } catch (e) {}
+      }
+      setStack([]);
+      setTab(t);
+    } else {
+      setStack([]);
+    }
   }, []);
 
-  const push = useCallback((r: Route) => setStack((s) => [...s, r]), []);
-  const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
-  const clearStack = useCallback(() => setStack([]), []);
+  const push = useCallback((r: Route) => {
+    try {
+      window.history.pushState({ appNav: true, type: "stack", name: r.name, id: r.id }, "");
+      historyDepthRef.current += 1;
+    } catch (e) {}
+    setStack((s) => [...s, r]);
+  }, []);
+
+  const pop = useCallback(() => {
+    if (historyDepthRef.current > 0) {
+      historyDepthRef.current -= 1;
+      window.history.back();
+    } else {
+      setStack((s) => s.slice(0, -1));
+    }
+  }, []);
+
+  const clearStack = useCallback(() => {
+    if (historyDepthRef.current > 0 && stackRef.current.length > 0) {
+      historyDepthRef.current = Math.max(0, historyDepthRef.current - stackRef.current.length);
+    }
+    setStack([]);
+  }, []);
 
   const unlockChat = useCallback((userId: string) => {
     setChats((cs) => {
@@ -941,7 +1004,20 @@ export const registerDynamicUser = (p: Person) => {
 };
 
 export const personById = (id: string): Person => {
-  return dynamicUserMap.get(id) || people.find((p) => p.id === id) || people[0];
+  return (
+    dynamicUserMap.get(id) ||
+    people.find((p) => p.id === id) || {
+      id: id || "member",
+      name: "JECRC Member",
+      role: "alumni",
+      headline: "JECRC Network Member",
+      branch: "CSE",
+      batch: "2024",
+      city: "Jaipur",
+      color: "#0F2A5E",
+      about: "Verified member of JECRC Foundation network.",
+    }
+  );
 };
 
 export const allGroups = seedGroups;
