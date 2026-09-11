@@ -15,7 +15,7 @@ const item = {
 };
 
 function HomeHeader() {
-  const { me, unreadNotifs, goTab, push, role } = useStore();
+  const { me, unreadNotifs, goTab, role } = useStore();
   return (
     <div className="flex items-center justify-between">
       <button className="btn-press flex items-center gap-3 cursor-pointer" onClick={() => goTab("profile")}>

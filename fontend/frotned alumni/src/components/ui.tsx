@@ -114,7 +114,7 @@ export function InitialsAvatar({
 }
 
 /* ---------------- Tag / Badge ---------------- */
-export function Tag({ children, tone = "navy" }: { children: React.ReactNode; tone?: "navy" | "gold" | "mint" | "rose" | "peri" | "plain" }) {
+export function Tag({ children, tone = "navy", className }: { children: React.ReactNode; tone?: "navy" | "gold" | "mint" | "rose" | "peri" | "plain"; className?: string }) {
   const tones: Record<string, string> = {
     navy: "bg-navy-50 text-navy",
     gold: "bg-gold-100 text-gold-600",
@@ -124,7 +124,7 @@ export function Tag({ children, tone = "navy" }: { children: React.ReactNode; to
     plain: "bg-page text-sub",
   };
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold", tones[tone])}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold", tones[tone], className)}>
       {children}
     </span>
   );

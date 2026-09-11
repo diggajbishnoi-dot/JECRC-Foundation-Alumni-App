@@ -10,7 +10,7 @@ const modeFilters = ["Any mode", "Onsite", "Remote", "Hybrid"] as const;
 
 /* ============== JOBS BOARD ============== */
 export function JobsScreen() {
-  const { allJobs, push, pop, toast, me } = useStore();
+  const { allJobs, push, pop, toast } = useStore();
   const [type, setType] = useState<(typeof typeFilters)[number]>("All");
   const [mode, setMode] = useState<(typeof modeFilters)[number]>("Any mode");
   const [loading, setLoading] = useState(true);

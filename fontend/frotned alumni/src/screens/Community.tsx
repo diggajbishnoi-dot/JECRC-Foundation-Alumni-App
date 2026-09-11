@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, MessageSquare, Plus, Send, Users, GraduationCap, Check,
-  MessagesSquare, HeartHandshake, UserCheck, Inbox, ChevronRight, Trash2,
+  MessagesSquare, HeartHandshake, UserCheck, Inbox, Trash2,
   BadgeCheck, UserPlus, Sparkles,
 } from "lucide-react";
 import { useStore, personById, allGroups, registerDynamicUser } from "../state/store";
@@ -12,7 +12,7 @@ import { Btn, EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Swi
 
 /* ================= DISCUSSION BOARD ================= */
 export function DiscussionsScreen() {
-  const { allThreads, push, pop, upvoted, toggleUp, addThread, deleteThread, me, toast } = useStore();
+  const { allThreads, push, pop, upvoted, toggleUp, addThread, deleteThread, me } = useStore();
   const [cat, setCat] = useState("All");
   const [loading, setLoading] = useState(true);
   const [compose, setCompose] = useState(false);
@@ -322,8 +322,6 @@ export function GroupsScreen() {
     (g) => g.type === "department" && g.branch === userBranch
   ) || allGroups.find((g) => g.type === "department" && g.branch === "CSE");
 
-  const userGroups = [myBatchGroup, myDeptCommunity].filter(Boolean) as (typeof allGroups)[0];
-
   return (
     <div className="h-full overflow-y-auto no-scrollbar bg-page pb-12">
       <ScreenHeader
@@ -377,7 +375,7 @@ export function GroupsScreen() {
                     Open Batch Hub →
                   </Btn>
                   <Btn
-                    variant={joined.has(myBatchGroup.id) ? "outline" : "secondary"}
+                    variant={joined.has(myBatchGroup.id) ? "outline" : "primary"}
                     className="!h-10 !px-4 !text-[12px]"
                     onClick={() => {
                       toggleJoin(myBatchGroup.id);
@@ -421,7 +419,7 @@ export function GroupsScreen() {
                     Open Community Hub →
                   </Btn>
                   <Btn
-                    variant={joined.has(myDeptCommunity.id) ? "outline" : "secondary"}
+                    variant={joined.has(myDeptCommunity.id) ? "outline" : "primary"}
                     className="!h-10 !px-4 !text-[12px]"
                     onClick={() => {
                       toggleJoin(myDeptCommunity.id);
