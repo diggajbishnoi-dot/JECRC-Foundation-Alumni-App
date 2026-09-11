@@ -4,8 +4,8 @@ import {
   UserPlus, Briefcase, GraduationCap, CalendarDays, UsersRound, MessageCircle,
   ChevronRight, LogOut, Trash2, CheckCheck, BellOff, EyeOff, Check, X, Handshake,
 } from "lucide-react";
-import { useStore, personById, Role } from "../state/store";
-import { Btn, EmptyState, InitialsAvatar, ScreenHeader, Segmented, Sheet, Switch, Tag } from "../components/ui";
+import { useStore, personById } from "../state/store";
+import { Btn, EmptyState, InitialsAvatar, ScreenHeader, Sheet, Switch, Tag } from "../components/ui";
 
 const notifIcons = {
   connect: { icon: UserPlus, tint: "#E3EAF7", color: "#0F2A5E" },
@@ -87,7 +87,7 @@ export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
 
 /* ================= SETTINGS ================= */
 export function SettingsScreen() {
-  const { pop, me, role, setRole, goTab, logout, deleteAccount, toast } = useStore();
+  const { pop, me, role, logout, deleteAccount } = useStore();
   const [prefs, setPrefs] = useState({ jobs: true, messages: true, events: true, digest: false });
   const [hideSeen, setHideSeen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -112,20 +112,11 @@ export function SettingsScreen() {
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-[17px] font-semibold text-ink">{me.name}</p>
             <p className="truncate text-[12.5px] text-sub">{me.headline}</p>
+            <span className="mt-1 inline-flex items-center rounded-full bg-navy/10 px-2.5 py-0.5 text-[11px] font-bold text-navy">
+              {role === "alumni" ? "Alumni Account" : "Student Account"}
+            </span>
           </div>
           <ChevronRight size={18} className="text-sub/40" />
-        </motion.div>
-
-        {/* demo role */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }} className="card p-4">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sub/60">Demo — preview as</p>
-          <div className="mt-3">
-            <Segmented
-              options={[{ id: "student", label: "Student view" }, { id: "alumni", label: "Alumni view" }]}
-              value={role as Role}
-              onChange={(r) => { setRole(r); goTab("home"); toast(`Previewing the ${r} experience`); }}
-            />
-          </div>
         </motion.div>
 
         {/* notifications */}
