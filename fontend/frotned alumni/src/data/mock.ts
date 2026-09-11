@@ -39,11 +39,21 @@ export interface Thread {
   title: string;
   category: string;
   author: string;
+  authorId?: string;
   authorRole: "student" | "alumni";
   upvotes: number;
   ago: string;
   body: string;
-  replies: { id: string; author: string; text: string; ago: string; upvotes: number }[];
+  mine?: boolean;
+  replies: {
+    id: string;
+    author: string;
+    authorId?: string;
+    text: string;
+    ago: string;
+    upvotes: number;
+    mine?: boolean;
+  }[];
 }
 
 export interface Group {

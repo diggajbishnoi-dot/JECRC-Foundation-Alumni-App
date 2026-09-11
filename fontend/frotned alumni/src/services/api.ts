@@ -243,6 +243,18 @@ class ApiService {
     });
   }
 
+  async deleteDiscussion(threadId: string) {
+    return await this.request(`/discussions/${threadId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteReply(threadId: string, replyId: string) {
+    return await this.request(`/discussions/${threadId}/replies/${replyId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Connections
   async getConnections() {
     return await this.request('/connections');

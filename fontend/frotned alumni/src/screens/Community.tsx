@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, MessageSquare, Plus, Send, Users, GraduationCap, Check,
-  MessagesSquare, HeartHandshake, UserCheck, Inbox, ChevronRight,
+  MessagesSquare, HeartHandshake, UserCheck, Inbox, ChevronRight, Trash2,
 } from "lucide-react";
 import { useStore, personById, allGroups, registerDynamicUser } from "../state/store";
 import { categories, Thread, Person } from "../data/mock";
@@ -11,7 +11,7 @@ import { Btn, EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Swi
 
 /* ================= DISCUSSION BOARD ================= */
 export function DiscussionsScreen() {
-  const { allThreads, push, pop, upvoted, toggleUp, addThread, me, toast } = useStore();
+  const { allThreads, push, pop, upvoted, toggleUp, addThread, deleteThread, me, toast } = useStore();
   const [cat, setCat] = useState("All");
   const [loading, setLoading] = useState(true);
   const [compose, setCompose] = useState(false);
@@ -58,6 +58,8 @@ export function DiscussionsScreen() {
           ) : (
             list.map((t, i) => {
               const up = upvoted.has(t.id);
+              const isOwner = t.mine || (t.authorId && t.authorId === me.id) || (t.author && t.author.trim().toLowerCase() === me.name.trim().toLowerCase());
+
               return (
                 <motion.div
                   key={t.id}
@@ -70,6 +72,7 @@ export function DiscussionsScreen() {
                     <div className="flex items-center gap-2">
                       <Tag tone={t.category === "Events" ? "gold" : t.category === "Career" || t.category === "Referrals" ? "peri" : "mint"}>{t.category}</Tag>
                       <span className="text-[11px] text-sub/60">{t.ago} ago · {t.replies.length} replies</span>
+                      {isOwner && <span className="rounded-md bg-navy/10 px-1.5 py-0.5 text-[10px] font-bold text-navy">Your Post</span>}
                     </div>
                     <p className="mt-2 text-[15px] font-semibold leading-snug text-ink">{t.title}</p>
                     <div className="mt-2.5 flex items-center gap-2">
@@ -78,14 +81,30 @@ export function DiscussionsScreen() {
                       <Tag tone={t.authorRole === "alumni" ? "gold" : "plain"}>{t.authorRole}</Tag>
                     </div>
                   </button>
-                  <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
-                    <UpvoteButton active={up} count={t.upvotes + (up ? 1 : 0)} onClick={() => toggleUp(t.id)} />
-                    <button
-                      onClick={() => push({ name: "threadDetail", id: t.id })}
-                      className="btn-press flex items-center gap-1.5 rounded-full bg-page px-3.5 py-2 text-[12px] font-bold text-sub cursor-pointer hover:bg-neutral-100 transition-colors"
-                    >
-                      <MessageSquare size={13} /> Reply
-                    </button>
+                  <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                    <div className="flex items-center gap-2">
+                      <UpvoteButton active={up} count={t.upvotes + (up ? 1 : 0)} onClick={() => toggleUp(t.id)} />
+                      <button
+                        onClick={() => push({ name: "threadDetail", id: t.id })}
+                        className="btn-press flex items-center gap-1.5 rounded-full bg-page px-3.5 py-2 text-[12px] font-bold text-sub cursor-pointer hover:bg-neutral-100 transition-colors"
+                      >
+                        <MessageSquare size={13} /> Reply
+                      </button>
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("Are you sure you want to delete your discussion post?")) {
+                            deleteThread(t.id);
+                          }
+                        }}
+                        title="Delete your post"
+                        className="btn-press flex h-8 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-semibold text-rose hover:bg-rose-50 cursor-pointer transition-colors"
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               );
@@ -119,11 +138,10 @@ export function DiscussionsScreen() {
             className="w-full"
             disabled={form.title.trim().length < 8}
             onClick={() => {
-              const t: Thread = { id: `t_${Date.now()}`, title: form.title, category: form.cat, author: me.name, authorRole: me.role, upvotes: 1, ago: "now", body: form.body, replies: [] };
+              const t: Thread = { id: `t_${Date.now()}`, title: form.title, category: form.cat, author: me.name, authorRole: me.role, upvotes: 1, ago: "now", body: form.body, replies: [], mine: true, authorId: me.id };
               addThread(t);
               setCompose(false);
               setForm({ title: "", body: "", cat: "Career" });
-              toast("Thread posted — the floor is yours");
             }}
           >
             Post thread
@@ -139,7 +157,7 @@ export function UpvoteButton({ active, count, onClick }: { active: boolean; coun
     <motion.button
       whileTap={{ scale: 0.85 }}
       onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-bold transition-colors ${active ? "bg-navy text-white" : "bg-page text-sub"}`}
+      className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-bold transition-colors cursor-pointer ${active ? "bg-navy text-white" : "bg-page text-sub"}`}
     >
       <motion.span animate={active ? { scale: [1, 1.5, 1], rotate: [0, -12, 0] } : {}} transition={{ duration: 0.35 }}>
         <TrendingUp size={13} />
@@ -153,18 +171,43 @@ export function UpvoteButton({ active, count, onClick }: { active: boolean; coun
 
 /* ================= THREAD DETAIL ================= */
 export function ThreadDetailScreen({ id }: { id: string }) {
-  const { allThreads, pop, upvoted, toggleUp, addReply } = useStore();
+  const { allThreads, pop, upvoted, toggleUp, addReply, deleteThread, deleteReply, me } = useStore();
   const t = allThreads.find((x) => x.id === id);
   const [reply, setReply] = useState("");
   if (!t) return null;
   const up = upvoted.has(t.id);
+  const isOwner = t.mine || (t.authorId && t.authorId === me.id) || (t.author && t.author.trim().toLowerCase() === me.name.trim().toLowerCase());
+
+  const handleDeleteThread = () => {
+    if (window.confirm("Are you sure you want to delete this discussion post?")) {
+      deleteThread(t.id);
+      pop();
+    }
+  };
 
   return (
     <div className="flex h-full flex-col bg-page">
-      <ScreenHeader title={t.category} onBack={pop} />
+      <ScreenHeader
+        title={t.category}
+        onBack={pop}
+        right={
+          isOwner ? (
+            <button
+              onClick={handleDeleteThread}
+              title="Delete post"
+              className="btn-press mr-2 flex h-8 items-center gap-1 rounded-full bg-rose-50 px-3 text-[12px] font-bold text-rose cursor-pointer hover:bg-rose-100 transition-colors"
+            >
+              <Trash2 size={13} /> Delete
+            </button>
+          ) : undefined
+        }
+      />
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-6">
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card p-5">
-          <Tag tone="gold">{t.category}</Tag>
+          <div className="flex items-center justify-between">
+            <Tag tone="gold">{t.category}</Tag>
+            {isOwner && <span className="rounded-md bg-navy/10 px-2 py-0.5 text-[11px] font-bold text-navy">Your Post</span>}
+          </div>
           <h2 className="mt-3 font-display text-[19px] font-bold leading-snug text-ink">{t.title}</h2>
           <div className="mt-3 flex items-center gap-2.5">
             <InitialsAvatar name={t.author} size={34} />
@@ -182,18 +225,36 @@ export function ThreadDetailScreen({ id }: { id: string }) {
         <h3 className="mb-3 mt-6 font-display text-[16px] font-semibold text-ink">{t.replies.length} replies</h3>
         <div className="space-y-3">
           <AnimatePresence>
-            {t.replies.map((r) => (
-              <motion.div key={r.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card flex gap-3 p-3.5">
-                <InitialsAvatar name={r.author} size={34} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-bold text-ink">{r.author}</p>
-                    <span className="text-[10.5px] text-sub/60">{r.ago}</span>
+            {t.replies.map((r) => {
+              const isReplyOwner = r.mine || (r.authorId && r.authorId === me.id) || r.author === me.name || r.author === "You";
+              return (
+                <motion.div key={r.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card flex gap-3 p-3.5">
+                  <InitialsAvatar name={r.author} size={34} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[13px] font-bold text-ink">{r.author}</p>
+                        <span className="text-[10.5px] text-sub/60">{r.ago}</span>
+                      </div>
+                      {isReplyOwner && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Delete this reply?")) {
+                              deleteReply(t.id, r.id);
+                            }
+                          }}
+                          title="Delete reply"
+                          className="btn-press p-1 text-sub/60 hover:text-rose cursor-pointer transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-ink/85">{r.text}</p>
                   </div>
-                  <p className="mt-1 text-[13px] leading-relaxed text-ink/85">{r.text}</p>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       </div>
@@ -209,7 +270,7 @@ export function ThreadDetailScreen({ id }: { id: string }) {
         <motion.button
           whileTap={{ scale: 0.88 }}
           onClick={() => { if (reply.trim()) { addReply(t.id, reply.trim()); setReply(""); } }}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${reply.trim() ? "bg-navy text-white shadow-lg" : "bg-page text-sub/50"}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full cursor-pointer ${reply.trim() ? "bg-navy text-white shadow-lg" : "bg-page text-sub/50"}`}
         >
           <Send size={17} />
         </motion.button>

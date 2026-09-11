@@ -81,7 +81,9 @@ interface Store {
   upvoted: Set<string>;
   toggleUp: (threadId: string) => void;
   addThread: (t: Thread) => void;
+  deleteThread: (threadId: string) => Promise<void>;
   addReply: (threadId: string, text: string) => void;
+  deleteReply: (threadId: string, replyId: string) => Promise<void>;
   // groups
   joined: Set<string>;
   toggleJoin: (gid: string) => void;
@@ -419,21 +421,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 2. Sync Discussions
     api.getDiscussions().then((res) => {
       if (res.success && Array.isArray(res.data?.items)) {
+        const currentUserId = me.id;
         const backendThreads: Thread[] = res.data.items.map((item: any) => ({
           id: item.id,
           title: item.title,
           category: item.category || "Career Guidance",
           author: item.user?.name || "Alumni Mentor",
-          authorRole: "alumni",
-          upvotes: item.upvotesCount || 12,
+          authorId: item.userId || item.user?.id,
+          authorRole: item.user?.role?.toLowerCase() === "student" ? "student" : "alumni",
+          upvotes: item.totalUpvotes || item.upvotesCount || 1,
           ago: "Recently",
           body: item.description,
+          mine: (item.userId && item.userId === currentUserId) || item.user?.id === currentUserId,
           replies: (item.replies || []).map((r: any) => ({
             id: r.id,
             author: r.user?.name || "JECRC Member",
+            authorId: r.userId || r.user?.id,
             text: r.content,
             ago: "Recently",
-            upvotes: 0,
+            upvotes: r.totalUpvotes || 0,
+            mine: (r.userId && r.userId === currentUserId) || r.user?.id === currentUserId,
           })),
         }));
         if (backendThreads.length > 0) {
@@ -683,29 +690,93 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     api.upvoteDiscussion(threadId).catch(() => {});
   }, []);
 
-  const addThread = useCallback((t: Thread) => {
-    setAllThreads((ts) => [t, ...ts]);
-    api.createDiscussion({
-      title: t.title,
-      description: t.body,
-      category: t.category,
-    }).then((res) => {
-      if (res.success) {
-        toast("Discussion published to backend network!");
-      }
-    });
-  }, [toast]);
+  const addThread = useCallback(
+    (t: Thread) => {
+      const threadWithMine: Thread = { ...t, mine: true, authorId: me.id };
+      setAllThreads((ts) => [threadWithMine, ...ts]);
+      api
+        .createDiscussion({
+          title: t.title,
+          description: t.body,
+          category: t.category,
+        })
+        .then((res) => {
+          if (res.success && res.data?.id) {
+            setAllThreads((ts) =>
+              ts.map((item) =>
+                item.id === t.id ? { ...item, id: res.data.id, authorId: me.id, mine: true } : item
+              )
+            );
+            toast("Discussion published to backend network!");
+          }
+        });
+    },
+    [me.id, toast]
+  );
 
-  const addReply = useCallback((threadId: string, text: string) => {
-    setAllThreads((ts) =>
-      ts.map((t) =>
-        t.id === threadId
-          ? { ...t, replies: [...t.replies, { id: `r_${Date.now()}`, author: "You", text, ago: "now", upvotes: 0 }] }
-          : t
-      )
-    );
-    api.replyDiscussion(threadId, text).catch(() => {});
-  }, []);
+  const deleteThread = useCallback(
+    async (threadId: string) => {
+      setAllThreads((ts) => ts.filter((t) => t.id !== threadId));
+      toast("Discussion post deleted");
+      try {
+        await api.deleteDiscussion(threadId);
+      } catch (err: any) {
+        console.warn("Failed to delete discussion from backend:", err);
+      }
+    },
+    [toast]
+  );
+
+  const addReply = useCallback(
+    (threadId: string, text: string) => {
+      const tempReplyId = `r_${Date.now()}`;
+      setAllThreads((ts) =>
+        ts.map((t) =>
+          t.id === threadId
+            ? {
+                ...t,
+                replies: [
+                  ...t.replies,
+                  { id: tempReplyId, author: me.name || "You", authorId: me.id, text, ago: "now", upvotes: 0, mine: true },
+                ],
+              }
+            : t
+        )
+      );
+      api.replyDiscussion(threadId, text).then((res) => {
+        if (res.success && res.data?.id) {
+          setAllThreads((ts) =>
+            ts.map((t) =>
+              t.id === threadId
+                ? {
+                    ...t,
+                    replies: t.replies.map((r) => (r.id === tempReplyId ? { ...r, id: res.data.id } : r)),
+                  }
+                : t
+            )
+          );
+        }
+      }).catch(() => {});
+    },
+    [me.id, me.name]
+  );
+
+  const deleteReply = useCallback(
+    async (threadId: string, replyId: string) => {
+      setAllThreads((ts) =>
+        ts.map((t) =>
+          t.id === threadId
+            ? { ...t, replies: t.replies.filter((r) => r.id !== replyId) }
+            : t
+        )
+      );
+      toast("Reply deleted");
+      try {
+        await api.deleteReply(threadId, replyId);
+      } catch (err: any) {}
+    },
+    [toast]
+  );
 
   const toggleJoin = useCallback((gid: string) => {
     setJoined((j) => {
@@ -847,12 +918,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
       chats, activeChat, setActiveChat, sendChat, syncMessages, syncPresence, typing, unlockChat,
-      allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply,
+      allJobs, addJob, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
       logout, deleteAccount, updateProfile,
     }),
-    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, syncPresence, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, addReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
+    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, syncPresence, typing, unlockChat, allJobs, addJob, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
