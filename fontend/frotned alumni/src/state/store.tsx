@@ -130,6 +130,38 @@ const nowTime = () => {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 };
 
+const getReadMsgIds = (): Set<string> => {
+  try {
+    return new Set<string>(JSON.parse(localStorage.getItem("read_msg_ids") || "[]"));
+  } catch (e) {
+    return new Set();
+  }
+};
+
+const saveReadMsgId = (msgId: string) => {
+  try {
+    const s = getReadMsgIds();
+    s.add(msgId);
+    localStorage.setItem("read_msg_ids", JSON.stringify(Array.from(s)));
+  } catch (e) {}
+};
+
+const getReadNotifIds = (): Set<string> => {
+  try {
+    return new Set<string>(JSON.parse(localStorage.getItem("read_notif_ids") || "[]"));
+  } catch (e) {
+    return new Set();
+  }
+};
+
+const saveReadNotifId = (notifId: string) => {
+  try {
+    const s = getReadNotifIds();
+    s.add(notifId);
+    localStorage.setItem("read_notif_ids", JSON.stringify(Array.from(s)));
+  } catch (e) {}
+};
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>("splash");
   const [role, setRole] = useState<Role>("alumni");
@@ -308,13 +340,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             };
             registerDynamicUser(mappedPerson);
 
+            const isRead = item.isRead || getReadNotifIds().has(`req_${item.id}`);
             pendingNotifs.push({
               id: `req_${item.id}`,
               group: "Today",
               title: "Connection Request",
               body: `${reqUser.name} (${mappedPerson.branch} '${mappedPerson.batch ? mappedPerson.batch.slice(-2) : "25"}) sent you a connection request.`,
               icon: "connect",
-              read: false,
+              read: isRead,
               ago: "Pending",
               userId: reqUser.id,
               connectionId: item.id,
@@ -330,7 +363,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             pendingNotifs.forEach((pn) => {
               const existing = existingMap.get(pn.id);
               if (existing) {
-                existingMap.set(pn.id, { ...pn, read: existing.read });
+                existingMap.set(pn.id, { ...pn, read: existing.read || pn.read });
               } else {
                 existingMap.set(pn.id, pn);
               }
@@ -380,13 +413,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (item.type === "CONNECTION_ACCEPTED") {
             const accepterId = item.payload?.acceptedByUserId;
             const p = accepterId ? personById(accepterId) : null;
+            const isRead = item.isRead || getReadNotifIds().has(`notif_${item.id}`);
             dynamicNotifs.push({
               id: `notif_${item.id}`,
               group: "Today",
               title: "Connection Accepted! 🎉",
               body: `${p?.name || "A fellow member"} accepted your connection request. Say hi in chat!`,
               icon: "connect",
-              read: item.isRead,
+              read: isRead,
               ago: "Recently",
               userId: accepterId,
               connectionId: item.payload?.connectionId,
@@ -781,11 +815,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     activeChatRef.current = id;
     if (id) {
       setChats((cs) =>
-        cs.map((c) =>
-          c.id === id || c.userId === id || `c_${c.userId}` === id
-            ? { ...c, unread: 0 }
-            : c
-        )
+        cs.map((c) => {
+          if (c.id === id || c.userId === id || `c_${c.userId}` === id) {
+            c.msgs.forEach((m) => {
+              if (m.id) saveReadMsgId(m.id);
+            });
+            if (c.userId) {
+              api.markMessagesRead(c.userId).catch(() => {});
+            }
+            return {
+              ...c,
+              unread: 0,
+              msgs: c.msgs.map((m) => ({ ...m, status: "read" as const })),
+            };
+          }
+          return c;
+        })
       );
     }
   }, []);
@@ -798,6 +843,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (res.success && res.data?.items) {
           const currentUserId = me.id;
           const myPrivateKeyJwkRaw = sessionStorage.getItem("e2e_private_key_jwk");
+          const readMsgSet = getReadMsgIds();
+          const chatId = `c_${userId}`;
+          const isCurrentlyInThisChat = activeChatRef.current === chatId || activeChatRef.current === userId;
 
           const formattedMsgs: ChatMsg[] = await Promise.all(
             res.data.items.map(async (m: any) => {
@@ -851,6 +899,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 meta = { name: match ? match[1] : "Document.pdf", size: "Document" };
               }
 
+              const isRead = m.status?.toLowerCase() === "read" || readMsgSet.has(m.id) || isCurrentlyInThisChat;
+              if (isRead) {
+                saveReadMsgId(m.id);
+              }
+
               return {
                 id: m.id,
                 fromMe: isFromMe,
@@ -858,38 +911,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 text: kind === "text" ? content : "",
                 meta,
                 time,
-                status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
+                status: isRead ? ("read" as const) : m.status?.toLowerCase() === "delivered" ? ("delivered" as const) : ("sent" as const),
               };
             })
           );
 
-          const chatId = `c_${userId}`;
-          const isCurrentlyInThisChat = activeChatRef.current === chatId || activeChatRef.current === userId;
-
-          // Detect new incoming unread messages
+          // Detect unread messages count without triggering toasts on sync
           let newUnreadCount = 0;
-          let latestIncomingText = "";
-          const peerPerson = personById(userId);
 
           formattedMsgs.forEach((m) => {
-            if (!m.fromMe && !knownMsgIds.current.has(m.id)) {
-              knownMsgIds.current.add(m.id);
-              if (!isCurrentlyInThisChat) {
-                newUnreadCount += 1;
-                latestIncomingText = m.kind === "image" ? "📷 Sent a photo" : m.kind === "doc" ? `📄 ${m.meta?.name || "Document"}` : m.text;
-              }
+            if (!m.fromMe && m.status !== "read" && !readMsgSet.has(m.id) && !isCurrentlyInThisChat) {
+              newUnreadCount += 1;
             }
+            knownMsgIds.current.add(m.id);
           });
-
-          // Show in-app banner toast notification for incoming messages if user is not in this chat room
-          if (!isCurrentlyInThisChat && newUnreadCount > 0 && latestIncomingText) {
-            toast(`💬 ${peerPerson.name}: ${latestIncomingText}`);
-          }
 
           setChats((prev) => {
             const exists = prev.find((c) => c.userId === userId || c.id === chatId);
             if (exists) {
-              const updatedUnread = isCurrentlyInThisChat ? 0 : (exists.unread || 0) + newUnreadCount;
+              const updatedUnread = isCurrentlyInThisChat ? 0 : newUnreadCount;
               return prev.map((c) =>
                 c.userId === userId || c.id === chatId
                   ? { ...c, locked: false, msgs: formattedMsgs, unread: updatedUnread }
@@ -913,7 +953,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {}
     },
-    [me.id, toast]
+    [me.id]
   );
 
   const syncPresence = useCallback(async (userId: string) => {
@@ -1218,12 +1258,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const markNotif = useCallback((id: string) => {
+    saveReadNotifId(id);
     setNotifList((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n)));
     const rawId = id.replace("notif_", "").replace("req_", "");
     api.markNotificationRead(rawId).catch(() => {});
   }, []);
   const markAllNotifs = useCallback(() => {
-    setNotifList((ns) => ns.map((n) => ({ ...n, read: true })));
+    setNotifList((ns) => {
+      ns.forEach((n) => saveReadNotifId(n.id));
+      return ns.map((n) => ({ ...n, read: true }));
+    });
     api.markAllNotificationsRead().catch(() => {});
   }, []);
 

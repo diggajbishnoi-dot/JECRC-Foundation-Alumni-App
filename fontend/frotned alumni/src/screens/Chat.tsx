@@ -120,7 +120,7 @@ export function ChatListScreen() {
 
 /* ============== CHAT ROOM ============== */
 export function ChatRoomScreen({ id }: { id: string }) {
-  const { pop, chats, sendChat, syncMessages, syncPresence, typing } = useStore();
+  const { pop, chats, sendChat, syncMessages, syncPresence, typing, setActiveChat } = useStore();
   const chat = chats.find((c) => c.id === id || c.userId === id) || { id, userId: id, online: false, lastSeen: "Offline", unread: 0, msgs: [] };
   const p = personById(chat.userId);
   const [text, setText] = useState("");
@@ -133,12 +133,14 @@ export function ChatRoomScreen({ id }: { id: string }) {
   const docInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setActiveChat(chat.id);
     if (chat.userId) {
       syncMessages(chat.userId);
       syncPresence(chat.userId);
       api.markMessagesRead(chat.userId).catch(() => {});
     }
-  }, [chat.userId, syncMessages, syncPresence]);
+    return () => setActiveChat(null);
+  }, [chat.id, chat.userId, setActiveChat, syncMessages, syncPresence]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
