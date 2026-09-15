@@ -154,7 +154,21 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     if (count >= maxAttempts) {
       return false; // Exceeded limit
     }
-    await this.set(key, (count + 1).toString(), windowSeconds);
+    if (count === 0) {
+      await this.set(key, '1', windowSeconds);
+    } else {
+      if (this.isConnected && this.client) {
+        try {
+          await this.client.incr(key);
+        } catch {
+          await this.set(key, (count + 1).toString());
+        }
+      } else {
+        const item = this.inMemoryStore.get(key);
+        const remainingTtl = item?.expiry ? Math.max(1, Math.ceil((item.expiry - Date.now()) / 1000)) : windowSeconds;
+        await this.set(key, (count + 1).toString(), remainingTtl);
+      }
+    }
     return true;
   }
 
