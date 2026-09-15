@@ -1270,6 +1270,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       company: j.company,
       location: j.location,
       pay: j.pay,
+      deadline: j.deadline || undefined,
     }).then((res) => {
       if (res.success) {
         toast("Job synced with backend!");

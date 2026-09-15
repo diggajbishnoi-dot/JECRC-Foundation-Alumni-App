@@ -24,7 +24,20 @@ export function JobsScreen() {
   const hasActiveFilters = type !== "All" || mode !== "Any mode";
 
   const results = useMemo(
-    () => allJobs.filter((j) => (type === "All" || j.type === type) && (mode === "Any mode" || j.mode === mode)),
+    () => {
+      const now = new Date();
+      return allJobs.filter((j) => {
+        // Filter by type and mode
+        if (type !== "All" && j.type !== type) return false;
+        if (mode !== "Any mode" && j.mode !== mode) return false;
+        // Filter out expired posts (deadline has passed)
+        if (j.deadline && j.deadline !== "Rolling") {
+          const deadlineDate = new Date(j.deadline);
+          if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) return false;
+        }
+        return true;
+      });
+    },
     [allJobs, type, mode]
   );
 

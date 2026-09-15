@@ -290,14 +290,14 @@ const normalizeBatch = (rawBatch?: string): string => {
 const normalizeBranch = (rawBranch?: string): string => {
   if (!rawBranch) return "CSE";
   const b = rawBranch.toUpperCase().trim();
-  if (b.includes("AIML") || b.includes("AI & ML") || b.includes("AI/ML") || b.includes("CSAI") || b.includes("ARTIFICIAL")) return "AIML";
+  if (b.includes("CSAI") || b.includes("AIML") || b.includes("AI & ML") || b.includes("AI/ML") || b.includes("ARTIFICIAL INTEL")) return "CSAI";
   if (b.includes("AIDS") || b.includes("DATA SCIENCE") || b.includes("DS")) return "AIDS";
   if (b.includes("CSE") || b.includes("COMPUTER")) return "CSE";
   if (b.includes("ECE") || b.includes("ELECTRONIC")) return "ECE";
   if (b.includes("IT") || b.includes("INFORMATION")) return "IT";
   if (b.includes("ME") || b.includes("MECHANIC")) return "ME";
   if (b.includes("EE") || b.includes("ELECTRICAL")) return "EE";
-  if (b.includes("CIVIL")) return "Civil";
+  if (b.includes("CE") || b.includes("CIVIL")) return "CE";
   return "CSE";
 };
 

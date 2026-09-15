@@ -31,6 +31,7 @@ export class PostsService {
         company: dto.company || null,
         location: dto.location || null,
         pay: dto.pay || null,
+        deadline: dto.deadline ? new Date(dto.deadline) : null,
         attachmentUrl: dto.attachmentUrl || null,
       },
       include: {
@@ -53,6 +54,9 @@ export class PostsService {
    * Get paginated post feed with application count
    */
   async getPostsFeed(query: QueryPostsDto) {
+    // Auto-cleanup expired posts on every feed fetch
+    await this.cleanupExpiredPosts();
+
     const where: Prisma.PostWhereInput = {};
 
     if (query.type) {
@@ -62,6 +66,12 @@ export class PostsService {
     if (query.location) {
       where.location = { contains: query.location, mode: 'insensitive' };
     }
+
+    // Only show posts that haven't expired (deadline is null or in the future)
+    where.OR = [
+      { deadline: null },
+      { deadline: { gte: new Date() } },
+    ];
 
     const [posts, total] = await Promise.all([
       this.prisma.post.findMany({
@@ -106,6 +116,26 @@ export class PostsService {
         totalPages: Math.ceil(total / (query.limit || 20)),
       },
     };
+  }
+
+  /**
+   * Delete all posts whose deadline has passed
+   */
+  async cleanupExpiredPosts() {
+    try {
+      const result = await this.prisma.post.deleteMany({
+        where: {
+          deadline: {
+            lt: new Date(),
+          },
+        },
+      });
+      if (result.count > 0) {
+        console.log(`[PostsService] Auto-deleted ${result.count} expired post(s)`);
+      }
+    } catch {
+      // Silently ignore cleanup errors
+    }
   }
 
   /**

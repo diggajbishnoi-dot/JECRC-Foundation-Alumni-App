@@ -35,6 +35,11 @@ export class CreatePostDto {
   @IsString()
   pay?: string;
 
+  @ApiPropertyOptional({ example: '2026-12-31' })
+  @IsOptional()
+  @IsString()
+  deadline?: string;
+
   @ApiPropertyOptional({ example: 'https://careers.microsoft.com/job/12345 or attachment url' })
   @IsOptional()
   @IsString()

@@ -336,7 +336,7 @@ class ApiService {
     return await this.request(`/posts${query}`);
   }
 
-  async createPost(data: { title: string; description: string; type: 'GENERAL' | 'JOB' | 'INTERNSHIP'; company?: string; location?: string; pay?: string }) {
+  async createPost(data: { title: string; description: string; type: 'GENERAL' | 'JOB' | 'INTERNSHIP'; company?: string; location?: string; pay?: string; deadline?: string }) {
     return await this.request('/posts', {
       method: 'POST',
       body: JSON.stringify(data),

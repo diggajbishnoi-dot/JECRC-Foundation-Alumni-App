@@ -190,25 +190,27 @@ model DeviceToken {
 }
 
 model Post {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type          PostType @default(GENERAL)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          PostType  @default(GENERAL)
   title         String
   description   String
   company       String?
   location      String?
   pay           String?
+  deadline      DateTime?
   attachmentUrl String?
-  reportCount   Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  reportCount   Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   jobApplications JobApplication[]
 
   @@index([type])
   @@index([userId])
   @@index([createdAt])
+  @@index([deadline])
   @@map("posts")
 }
 
