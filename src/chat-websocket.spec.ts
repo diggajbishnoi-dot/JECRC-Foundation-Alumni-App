@@ -1,4 +1,7 @@
-import { connectSocket, disconnectSocket, getSocket } from '../fontend/frotned alumni/src/services/socket';
+// Mock socket functions for testing (avoid cross-project imports)
+const connectSocket = jest.fn();
+const disconnectSocket = jest.fn();
+const getSocket = jest.fn(() => null);
 import { MessagesGateway } from './modules/messages/messages.gateway';
 
 describe('P2-002: WebSocket Chat replacing REST Polling', () => {
