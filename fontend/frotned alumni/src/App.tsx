@@ -13,6 +13,7 @@ import { JobsScreen, JobDetailScreen, PostJobScreen } from "./screens/Jobs";
 import { DiscussionsScreen, ThreadDetailScreen, GroupsScreen, GroupDetailScreen, MentorshipScreen } from "./screens/Community";
 import { NotificationsScreen, SettingsScreen, ConnectionsScreen } from "./screens/System";
 import { AuthWave, SealMark } from "./components/visuals";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function useMediaQuery(q: string) {
   const [m, setM] = useState(() => window.matchMedia(q).matches);
@@ -433,11 +434,13 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
 export default function App() {
   const desktop = useMediaQuery("(min-width: 1280px)");
   return (
-    <StoreProvider>
-      <LayoutGroup>
-        <Root desktop={desktop} />
-      </LayoutGroup>
-    </StoreProvider>
+    <ErrorBoundary>
+      <StoreProvider>
+        <LayoutGroup>
+          <Root desktop={desktop} />
+        </LayoutGroup>
+      </StoreProvider>
+    </ErrorBoundary>
   );
 }
 

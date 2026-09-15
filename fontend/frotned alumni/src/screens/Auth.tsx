@@ -247,13 +247,13 @@ export default function AuthFlow() {
         }
         toast(`Verification code generated for ${reg.email}`);
       } else {
-        const errorMsg = res.error || "User already exists with this email.";
+        const errorMsg = typeof res.error === 'string' ? res.error : (Array.isArray(res.error) ? (res.error as any).join(', ') : "Registration failed.");
         setErrors({ email: errorMsg });
         toast(errorMsg);
       }
     } catch (err: any) {
       setLoading(false);
-      const errorMsg = err.message || "Registration failed. User already exists with this email.";
+      const errorMsg = typeof err?.message === 'string' ? err.message : "Registration failed. User already exists with this email.";
       setErrors({ email: errorMsg });
       toast(errorMsg);
     }
@@ -331,15 +331,25 @@ export default function AuthFlow() {
         toast(`Welcome back, ${u.name.split(" ")[0] || "Member"}!`);
         return;
       } else {
-        const errMsg = res.error || "No account found with this email. Don't have an account? Sign up below.";
-        setErrors({ l_email: errMsg });
+        const errMsg = typeof res.error === 'string' ? res.error : "Login failed. Please check your credentials.";
+        const lower = errMsg.toLowerCase();
+        if (lower.includes("password") || lower.includes("pass")) {
+          setErrors({ l_pass: errMsg });
+        } else {
+          setErrors({ l_email: errMsg });
+        }
         toast(errMsg);
         return;
       }
     } catch (err: any) {
       setLoading(false);
-      const errMsg = err?.message || "Invalid credentials or account does not exist. Please Sign up.";
-      setErrors({ l_email: errMsg });
+      const errMsg = typeof err?.message === 'string' ? err.message : "Invalid credentials. Please try again.";
+      const lower = errMsg.toLowerCase();
+      if (lower.includes("password") || lower.includes("pass")) {
+        setErrors({ l_pass: errMsg });
+      } else {
+        setErrors({ l_email: errMsg });
+      }
       toast(errMsg);
       return;
     }
@@ -858,7 +868,7 @@ export default function AuthFlow() {
                   placeholder="Enter Email"
                   error={errors.email}
                 />
-                {errors.email && (errors.email.toLowerCase().includes("already") || errors.email.toLowerCase().includes("exist")) && (
+                {typeof errors.email === "string" && errors.email && (errors.email.toLowerCase().includes("already") || errors.email.toLowerCase().includes("exist")) && (
                   <div className="rounded-xl border border-rose/25 bg-rose-50/70 p-3 text-[12.5px] text-sub flex items-center justify-between">
                     <span className="text-rose font-medium">Account already registered</span>
                     <button
@@ -1182,6 +1192,40 @@ export default function AuthFlow() {
                   placeholder="Enter Email"
                   error={errors.l_email}
                 />
+                {typeof errors.l_email === "string" && errors.l_email && (errors.l_email.toLowerCase().includes("no account") || errors.l_email.toLowerCase().includes("not found")) && (
+                  <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 p-2.5 text-[12px] text-amber-900 flex items-center justify-between">
+                    <span>No account registered with this email.</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        up("email", loginForm.email);
+                        setScreen("register");
+                      }}
+                      className="rounded-lg bg-navy px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-navy-600 cursor-pointer"
+                    >
+                      Sign Up &rarr;
+                    </button>
+                  </div>
+                )}
+                {typeof errors.l_email === "string" && errors.l_email && errors.l_email.toLowerCase().includes("verified") && (
+                  <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 p-2.5 text-[12px] text-amber-900 flex items-center justify-between">
+                    <span>Email needs OTP verification.</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        up("email", loginForm.email);
+                        const res = await api.resendOtp(loginForm.email);
+                        if (res.success && res.data?.previewOtpForDev) {
+                          setDevOtp(res.data.previewOtpForDev);
+                        }
+                        setScreen("otp");
+                      }}
+                      className="rounded-lg bg-navy px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-navy-600 cursor-pointer"
+                    >
+                      Verify OTP &rarr;
+                    </button>
+                  </div>
+                )}
                 <Field
                   label="Password"
                   password

@@ -3,14 +3,21 @@ node_modules/
 **/node_modules/
 
 # Production builds
+dist/
+**/dist/
 fontend/**/dist/
 build/
+*.js.map
+*.d.ts
+!.d.ts
+prisma/seed.js
 
-# Environment variables
+# Environment variables & docker overrides
 .env
 .env.local
 .env.*.local
 !.env.example
+docker-compose.override.yml
 
 # Logs
 logs
@@ -42,3 +49,4 @@ artifacts/
 tmp/
 temp/
 *.tsbuildinfo
+

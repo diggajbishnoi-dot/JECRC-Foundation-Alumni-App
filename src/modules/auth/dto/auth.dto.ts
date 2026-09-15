@@ -19,7 +19,7 @@ export class VerifyOtpDto {
   @IsNotEmpty()
   emailOrMobile: string;
 
-  @ApiProperty({ example: '123456', description: '6-digit OTP received via Email or SMS' })
+  @ApiProperty({ example: '123456', description: '6-digit OTP received via Email' })
   @IsString()
   @IsNotEmpty()
   otp: string;
@@ -59,7 +59,7 @@ export class ResetPasswordDto {
 
   @ApiProperty({ example: 'NewStrongPassword123!', minLength: 8 })
   @IsString()
-  @MinLength(8)
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
   newPassword: string;
 }
 
@@ -93,9 +93,9 @@ export class ClaimActivateDto {
   @IsNotEmpty()
   otp: string;
 
-  @ApiProperty({ example: 'MyNewPassword@123', minLength: 6 })
+  @ApiProperty({ example: 'MyNewPassword@123', minLength: 8 })
   @IsString()
-  @MinLength(6)
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
   newPassword: string;
 
   @ApiPropertyOptional({ example: 'Senior Software Engineer @ Google' })

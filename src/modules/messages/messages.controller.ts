@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -21,6 +22,21 @@ import { MessagesService } from './messages.service';
 @Controller('messages')
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
+
+  @Post('attachment')
+  @ApiOperation({
+    summary: 'Upload chat attachment image to Object Storage',
+    description: 'Uploads chat image/attachment to S3-compatible object storage and returns public CDN URL.',
+  })
+  @ApiResponse({ status: 201, description: 'Attachment uploaded to S3' })
+  async uploadAttachment(
+    @Body() body: { dataUrl?: string; fileName?: string },
+  ) {
+    if (body.dataUrl) {
+      return await this.messagesService.uploadBase64Attachment(body.dataUrl, body.fileName);
+    }
+    throw new BadRequestException('No dataUrl provided for chat attachment upload');
+  }
 
   @Post()
   @ApiOperation({

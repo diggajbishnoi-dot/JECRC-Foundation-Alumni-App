@@ -30,8 +30,8 @@ services:
       POSTGRES_USER: alumni_user
       POSTGRES_PASSWORD: alumni_secure_password
       POSTGRES_DB: alumni_db
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -46,8 +46,8 @@ services:
     image: redis:7-alpine
     container_name: alumni_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:

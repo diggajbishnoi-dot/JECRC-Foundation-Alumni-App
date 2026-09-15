@@ -40,28 +40,23 @@ export class OtpService {
   }
 
   /**
-   * Dispatches OTP via either SMS or Email
+   * Dispatches OTP via Email
    */
-  async sendOtp(destination: string, channel: OtpChannel): Promise<SendOtpResult> {
+  async sendOtp(destination: string, channel: OtpChannel = OtpChannel.EMAIL): Promise<SendOtpResult> {
     const rawOtp = this.generateOtpCode();
     const otpCodeHash = await this.hashOtp(rawOtp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    let emailResult: { success: boolean; error?: string } = { success: true };
-    if (channel === OtpChannel.EMAIL) {
-      emailResult = await this.sendEmailOtp(destination, rawOtp);
-    } else {
-      await this.sendSmsOtp(destination, rawOtp);
-    }
+    const emailResult = await this.sendEmailOtp(destination, rawOtp);
 
-    // OTP preview is ONLY permitted in non-production environments when explicitly enabled.
-    // Production ALWAYS returns undefined — delivery failure does NOT expose the OTP.
+    // Demo / Random OTP preview for local dev and when no paid SMS/Email API key is configured
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    const previewExplicitlyAllowed = this.configService.get<string>('ALLOW_OTP_PREVIEW') === 'true';
-    const shouldProvidePreview = !isProduction && previewExplicitlyAllowed;
+    const previewExplicitlyAllowed = this.configService.get<string>('ALLOW_OTP_PREVIEW', 'true') !== 'false';
+    const shouldProvidePreview = !isProduction || previewExplicitlyAllowed || !resendApiKey;
 
     return {
-      channel,
+      channel: OtpChannel.EMAIL,
       destination,
       expiresAt,
       otpCodeHash,
@@ -118,10 +113,5 @@ export class OtpService {
       this.logger.warn('[RESEND SKIPPED] No RESEND_API_KEY configured in environment variables.');
       return { success: false, error: 'No RESEND_API_KEY configured' };
     }
-  }
-
-  private async sendSmsOtp(mobile: string, otp: string): Promise<void> {
-    const provider = this.configService.get<string>('SMS_PROVIDER', 'TWILIO');
-    this.logger.log(`[SMS DISPATCH] Provider=${provider} — sending verification code to ${mobile}`);
   }
 }

@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { OtpChannel } from '@prisma/client';
 import { OtpService } from './otp.service';
@@ -51,14 +51,14 @@ describe('OtpService — previewOtpForDev gating', () => {
 
   it('MUST NOT return previewOtpForDev in non-production when ALLOW_OTP_PREVIEW is not set', async () => {
     const service = await buildService({ NODE_ENV: 'development' });
-    const result = await service.sendOtp('+919876543210', OtpChannel.SMS);
+    const result = await service.sendOtp('user@alumni.edu', OtpChannel.EMAIL);
     expect(result.previewOtpForDev).toBeUndefined();
   });
 
   it('MUST always return a valid bcrypt hash and future expiry regardless of environment', async () => {
     const service = await buildService({ NODE_ENV: 'production' });
     const before = new Date();
-    const result = await service.sendOtp('+919876543210', OtpChannel.SMS);
+    const result = await service.sendOtp('user@alumni.edu', OtpChannel.EMAIL);
     const diffMs = result.expiresAt.getTime() - before.getTime();
     expect(result.otpCodeHash).toMatch(/^\$2[aby]\$\d+\$/);
     expect(diffMs).toBeGreaterThan(9 * 60 * 1000);

@@ -72,7 +72,13 @@ export class UsersService {
 
     await this.prisma.$transaction(async (tx) => {
       const userUpdate: Prisma.UserUpdateInput = {};
-      if (dto.name !== undefined) userUpdate.name = dto.name;
+      if (dto.name !== undefined) {
+        userUpdate.name = dto.name
+          .trim()
+          .split(/\s+/)
+          .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''))
+          .join(' ');
+      }
       if (dto.bio !== undefined) userUpdate.bio = dto.bio;
       if (dto.city !== undefined) userUpdate.city = dto.city;
       if (dto.hideLastSeen !== undefined) userUpdate.hideLastSeen = dto.hideLastSeen;

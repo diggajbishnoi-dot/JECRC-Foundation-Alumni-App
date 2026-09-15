@@ -1,9 +1,11 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MessageStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { FcmService } from '../../services/fcm/fcm.service';
 import { ConnectionsService } from '../connections/connections.service';
+import { StorageService } from '../../services/storage/storage.service';
 import { MessagesService } from './messages.service';
 
 describe('Messages E2E Zero-Knowledge Ciphertext Invariant Test', () => {
@@ -52,6 +54,7 @@ describe('Messages E2E Zero-Knowledge Ciphertext Invariant Test', () => {
         { provide: ConnectionsService, useValue: mockConnectionsService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: FcmService, useValue: mockFcmService },
+        { provide: StorageService, useValue: { uploadFile: jest.fn(), uploadBase64Image: jest.fn() } },
       ],
     }).compile();
 
@@ -101,5 +104,24 @@ describe('Messages E2E Zero-Knowledge Ciphertext Invariant Test', () => {
       expect(pushPayload.data.encryptedContent).toBeUndefined();
       expect(pushPayload.data.content).toBeUndefined();
     }
+  });
+
+  it('MUST reject sending a message if nonce is missing or empty (P2-005)', async () => {
+    await expect(
+      service.sendMessage('sender-1', {
+        receiverId: 'receiver-2',
+        encryptedContent: sampleCiphertext,
+        nonce: '',
+      } as any),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('MUST reject sending a message if nonce is undefined (P2-005)', async () => {
+    await expect(
+      service.sendMessage('sender-1', {
+        receiverId: 'receiver-2',
+        encryptedContent: sampleCiphertext,
+      } as any),
+    ).rejects.toThrow(BadRequestException);
   });
 });

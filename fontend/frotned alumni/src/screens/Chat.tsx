@@ -25,7 +25,7 @@ export function ChatListScreen() {
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    // Sync all chats & presences
+    // Sync all chats & presences on mount (real-time updates driven by Socket.IO)
     chats.forEach((c) => {
       if (c.userId) {
         syncMessages(c.userId);
@@ -33,17 +33,8 @@ export function ChatListScreen() {
       }
     });
     const t = setTimeout(() => setLoading(false), 500);
-    const interval = setInterval(() => {
-      chats.forEach((c) => {
-        if (c.userId) {
-          syncMessages(c.userId);
-          syncPresence(c.userId);
-        }
-      });
-    }, 4000);
     return () => {
       clearTimeout(t);
-      clearInterval(interval);
     };
   }, [chats.length, syncMessages, syncPresence]);
 
@@ -146,11 +137,6 @@ export function ChatRoomScreen({ id }: { id: string }) {
       syncMessages(chat.userId);
       syncPresence(chat.userId);
       api.markMessagesRead(chat.userId).catch(() => {});
-      const poll = setInterval(() => {
-        syncMessages(chat.userId);
-        syncPresence(chat.userId);
-      }, 2500);
-      return () => clearInterval(poll);
     }
   }, [chat.userId, syncMessages, syncPresence]);
 
@@ -178,14 +164,25 @@ export function ChatRoomScreen({ id }: { id: string }) {
 
     if (type === "camera" || type === "gallery" || file.type.startsWith("image/")) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const dataUrl = event.target?.result as string;
-        sendChat(chat.id, {
-          fromMe: true,
-          kind: "image",
-          text: "",
-          meta: { name: file.name, size: sizeStr, url: dataUrl },
-        });
+        try {
+          const res = await api.uploadChatAttachment(dataUrl, file.name);
+          const s3Url = (res.success && res.data?.url) ? res.data.url : dataUrl;
+          sendChat(chat.id, {
+            fromMe: true,
+            kind: "image",
+            text: "",
+            meta: { name: file.name, size: sizeStr, url: s3Url },
+          });
+        } catch (e) {
+          sendChat(chat.id, {
+            fromMe: true,
+            kind: "image",
+            text: "",
+            meta: { name: file.name, size: sizeStr, url: dataUrl },
+          });
+        }
       };
       reader.readAsDataURL(file);
     } else {

@@ -3,33 +3,66 @@
 const API_BASE = ((import.meta as any).env?.VITE_API_URL as string)?.replace(/\/$/, '') || '/api/v1';
 
 class ApiService {
-  private token: string | null = null;
+  private accessToken: string | null = null;
+  private refreshToken: string | null = null;
+  private isRefreshing = false;
 
   constructor() {
-    this.token = localStorage.getItem('alumni_token') || null;
+    // SessionStorage is safer than localStorage because it automatically clears on tab close
+    // and is isolated from persistent cross-tab disk storage.
+    this.accessToken = sessionStorage.getItem('alumni_access_token') || localStorage.getItem('alumni_token') || null;
+    this.refreshToken = sessionStorage.getItem('alumni_refresh_token') || null;
+
+    // Clean up legacy localStorage token if present
+    if (localStorage.getItem('alumni_token')) {
+      localStorage.removeItem('alumni_token');
+      if (this.accessToken) {
+        sessionStorage.setItem('alumni_access_token', this.accessToken);
+      }
+    }
   }
 
-  setToken(token: string | null) {
-    this.token = token;
-    if (token) {
-      localStorage.setItem('alumni_token', token);
+  setTokens(tokens: { accessToken: string; refreshToken?: string } | null) {
+    if (tokens && tokens.accessToken) {
+      this.accessToken = tokens.accessToken;
+      sessionStorage.setItem('alumni_access_token', tokens.accessToken);
+      if (tokens.refreshToken) {
+        this.refreshToken = tokens.refreshToken;
+        sessionStorage.setItem('alumni_refresh_token', tokens.refreshToken);
+      }
     } else {
+      this.accessToken = null;
+      this.refreshToken = null;
+      sessionStorage.removeItem('alumni_access_token');
+      sessionStorage.removeItem('alumni_refresh_token');
       localStorage.removeItem('alumni_token');
     }
   }
 
-  getToken(): string | null {
-    return this.token;
+  setToken(token: string | null) {
+    this.setTokens(token ? { accessToken: token } : null);
   }
 
-  private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<{ success: boolean; data?: T; error?: string }> {
+  getToken(): string | null {
+    return this.accessToken;
+  }
+
+  getRefreshToken(): string | null {
+    return this.refreshToken;
+  }
+
+  private async request<T = any>(
+    endpoint: string,
+    options: RequestInit = {},
+    isRetry = false,
+  ): Promise<{ success: boolean; data?: T; error?: string }> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> || {}),
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
     try {
@@ -38,12 +71,32 @@ class ApiService {
         headers,
       });
 
+      // Handle 401 Unauthorized by attempting a single token refresh
+      if (res.status === 401 && !isRetry && endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
+        const refreshed = await this.refreshSession();
+        if (refreshed) {
+          return await this.request<T>(endpoint, options, true);
+        }
+      }
+
       const json = await res.json().catch(() => null);
 
       if (!res.ok) {
+        let errorMsg = '';
+        if (Array.isArray(json?.message)) {
+          errorMsg = json.message.join(', ');
+        } else if (typeof json?.message === 'string' && json.message.trim()) {
+          errorMsg = json.message;
+        } else if (typeof json?.error === 'string' && json.error.trim() && json.error !== 'Bad Request' && json.error !== 'Internal Server Error') {
+          errorMsg = json.error;
+        } else if (typeof json?.error === 'string') {
+          errorMsg = json.error;
+        } else {
+          errorMsg = `HTTP ${res.status}: ${res.statusText}`;
+        }
         return {
           success: false,
-          error: json?.error || json?.message || `HTTP ${res.status}: ${res.statusText}`,
+          error: String(errorMsg),
         };
       }
 
@@ -52,9 +105,42 @@ class ApiService {
         data: json?.data !== undefined ? json.data : json,
       };
     } catch (err: any) {
-      console.warn(`[API] Failed request to ${endpoint}:`, err.message);
       return { success: false, error: err.message || 'Network connection failed' };
     }
+  }
+
+  async refreshSession(): Promise<boolean> {
+    if (!this.refreshToken || this.isRefreshing) {
+      return false;
+    }
+    this.isRefreshing = true;
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: this.refreshToken }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.tokens?.accessToken) {
+        this.setTokens(json.tokens);
+        return true;
+      } else {
+        this.setTokens(null);
+        return false;
+      }
+    } catch {
+      this.setTokens(null);
+      return false;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  async logoutBackend() {
+    if (this.accessToken) {
+      await this.request('/auth/logout', { method: 'POST' }).catch(() => {});
+    }
+    this.setTokens(null);
   }
 
   // Auth endpoints
@@ -63,8 +149,8 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ emailOrMobile, password }),
     });
-    if (res.success && res.data?.tokens?.accessToken) {
-      this.setToken(res.data.tokens.accessToken);
+    if (res.success && res.data?.tokens) {
+      this.setTokens(res.data.tokens);
     }
     return res;
   }
@@ -95,8 +181,8 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ emailOrMobile, otp }),
     });
-    if (res.success && res.data?.tokens?.accessToken) {
-      this.setToken(res.data.tokens.accessToken);
+    if (res.success && res.data?.tokens) {
+      this.setTokens(res.data.tokens);
     }
     return res;
   }
@@ -128,10 +214,29 @@ class ApiService {
     batch?: string;
     currentCompany?: string;
     designation?: string;
+    publicKey?: string;
   }) {
     return await this.request('/users/me', {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  async uploadPublicKey(publicKey: string) {
+    return await this.request('/users/me/public-key', {
+      method: 'POST',
+      body: JSON.stringify({ publicKey }),
+    });
+  }
+
+  async getPublicKey(userId: string) {
+    return await this.request<{ userId: string; publicKey: string }>(`/users/${userId}/public-key`);
+  }
+
+  async uploadChatAttachment(dataUrl: string, fileName?: string) {
+    return await this.request<{ url: string }>('/messages/attachment', {
+      method: 'POST',
+      body: JSON.stringify({ dataUrl, fileName }),
     });
   }
 
@@ -181,8 +286,8 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    if (res.success && res.data?.tokens?.accessToken) {
-      this.setToken(res.data.tokens.accessToken);
+    if (res.success && res.data?.tokens) {
+      this.setTokens(res.data.tokens);
     }
     return res;
   }

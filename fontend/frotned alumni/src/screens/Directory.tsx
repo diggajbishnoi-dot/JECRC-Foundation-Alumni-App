@@ -30,6 +30,7 @@ export function DirectoryScreen() {
   const [backendUsers, setBackendUsers] = useState<Person[]>([]);
   const [filterSheet, setFilterSheet] = useState<"batch" | "branch" | "company" | "city" | null>(null);
   const [filters, setFilters] = useState<{ batch?: string; branch?: string; company?: string; city?: string }>({});
+  const [roleTab, setRoleTab] = useState<"alumni" | "student" | "all">("alumni");
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 300);
@@ -86,7 +87,14 @@ export function DirectoryScreen() {
     });
   }, [backendUsers, me]);
 
-  const results = allDirectoryPeople;
+  const alumniCount = useMemo(() => allDirectoryPeople.filter((p) => p.role === "alumni").length, [allDirectoryPeople]);
+  const studentCount = useMemo(() => allDirectoryPeople.filter((p) => p.role === "student").length, [allDirectoryPeople]);
+
+  const results = useMemo(() => {
+    if (roleTab === "alumni") return allDirectoryPeople.filter((p) => p.role === "alumni");
+    if (roleTab === "student") return allDirectoryPeople.filter((p) => p.role === "student");
+    return allDirectoryPeople;
+  }, [allDirectoryPeople, roleTab]);
 
   const chipData: { id: "batch" | "branch" | "company" | "city"; label: string; active?: string }[] = [
     { id: "branch", label: "Branch", active: filters.branch },
@@ -123,8 +131,52 @@ export function DirectoryScreen() {
             transition={{ delay: 0.05 }}
             className="mt-0.5 text-[13px] text-sub"
           >
-            {allDirectoryPeople.length} verified {allDirectoryPeople.length === 1 ? "member" : "members"} in database
+            {results.length} {roleTab === "alumni" ? "alumni" : roleTab === "student" ? "students" : "members"} found
           </motion.p>
+
+          {/* Section Tabs: Alumni vs Student vs All */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            className="mt-3.5 flex rounded-xl border border-line bg-white/90 p-1 shadow-sm"
+          >
+            <button
+              type="button"
+              onClick={() => setRoleTab("alumni")}
+              className={`flex-1 rounded-lg py-2 text-[13px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                roleTab === "alumni"
+                  ? "bg-navy text-white shadow-sm"
+                  : "text-sub hover:text-ink"
+              }`}
+            >
+              <BriefcaseBusiness size={15} />
+              Alumni ({alumniCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setRoleTab("student")}
+              className={`flex-1 rounded-lg py-2 text-[13px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                roleTab === "student"
+                  ? "bg-navy text-white shadow-sm"
+                  : "text-sub hover:text-ink"
+              }`}
+            >
+              <GraduationCap size={15} />
+              Students ({studentCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setRoleTab("all")}
+              className={`rounded-lg px-3 py-2 text-[13px] font-bold transition-all cursor-pointer flex items-center justify-center ${
+                roleTab === "all"
+                  ? "bg-navy text-white shadow-sm"
+                  : "text-sub hover:text-ink"
+              }`}
+            >
+              All ({allDirectoryPeople.length})
+            </button>
+          </motion.div>
 
           {/* Search bar & Filter button */}
           <motion.div

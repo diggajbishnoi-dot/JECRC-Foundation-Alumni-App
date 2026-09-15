@@ -1,0 +1,12 @@
+# Local Development Override Example
+# Copy this file to `docker-compose.override.yml` if local host port access to Postgres or Redis is required for dev tools.
+# NOTE: Never commit docker-compose.override.yml or deploy it to production.
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"

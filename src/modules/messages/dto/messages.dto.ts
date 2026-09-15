@@ -20,13 +20,13 @@ export class SendMessageDto {
   encryptedContent: string;
 
   @ApiProperty({
-    description: 'Initialization vector / Nonce',
-    required: false,
+    description: 'Initialization vector / Nonce required for encrypted message delivery',
+    required: true,
     example: 'ubqO67k81zZp18Xz9A7n0Q==',
   })
   @IsString()
-  @IsOptional()
-  nonce?: string;
+  @IsNotEmpty({ message: 'Nonce is required for encrypted message delivery' })
+  nonce: string;
 }
 
 export class MarkDeliveredDto {

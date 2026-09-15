@@ -55,6 +55,7 @@ export class MessagesGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       ? null
       : rawOrigin.split(',').map((o) => o.trim()).filter(Boolean);
 
+    if (!server?.engine) return; // engine not ready (e.g. ts-node cold start)
     server.engine.on('initial_headers', (_headers: Record<string, string>, req: any) => {
       const requestOrigin: string | undefined = req.headers?.origin;
 
@@ -153,6 +154,10 @@ export class MessagesGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   ) {
     if (!client.userId) {
       return { success: false, error: 'Unauthorized socket session' };
+    }
+
+    if (!dto.nonce || typeof dto.nonce !== 'string' || !dto.nonce.trim()) {
+      return { success: false, error: 'Nonce is required for encrypted message delivery' };
     }
 
     try {

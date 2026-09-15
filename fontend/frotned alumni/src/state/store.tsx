@@ -1,6 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Person, people, meAlumni, Job, JobApplicant, Thread, Notif, groups as seedGroups } from "../data/mock";
+import { capitalizeName } from "../components/ui";
 import { api } from "../services/api";
+import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
+import {
+  generateE2EKeyPair,
+  encryptClientMessage,
+  decryptClientMessage,
+} from "../utils/e2e-encryption";
 
 export type Role = "student" | "alumni";
 export type Phase = "splash" | "onboard" | "auth" | "app";
@@ -69,6 +76,8 @@ interface Store {
   activeChat: string | null;
   setActiveChat: (id: string | null) => void;
   sendChat: (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => void;
+  sendTyping?: (userId: string) => void;
+  sendStopTyping?: (userId: string) => void;
   syncMessages: (userId: string) => Promise<void>;
   syncPresence: (userId: string) => Promise<void>;
   typing: Record<string, boolean>;
@@ -124,7 +133,22 @@ const nowTime = () => {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>("splash");
   const [role, setRole] = useState<Role>("alumni");
-  const [me, setMe] = useState<Person>(meAlumni);
+  const [me, setMeState] = useState<Person>(() => ({
+    ...meAlumni,
+    name: capitalizeName(meAlumni.name),
+  }));
+
+  const setMe = useCallback((val: Person | ((prev: Person) => Person)) => {
+    setMeState((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      const formatted = {
+        ...next,
+        name: capitalizeName(next.name),
+      };
+      registerDynamicUser(formatted);
+      return formatted;
+    });
+  }, []);
   const [tab, setTab] = useState<Tab>("home");
   const [stack, setStack] = useState<Route[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -132,8 +156,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [received, setReceived] = useState<string[]>([]);
   const [sent, setSent] = useState<string[]>([]);
   const [activeChat, setActiveChatState] = useState<string | null>(null);
-  const [typing] = useState<Record<string, boolean>>({});
+  const [typing, setTyping] = useState<Record<string, boolean>>({});
   const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const meRef = useRef<Person>(me);
+  meRef.current = me;
   const [allThreads, setAllThreads] = useState<Thread[]>([]);
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
   const [joined, setJoined] = useState<Set<string>>(new Set());
@@ -386,6 +412,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Sync state with Backend API
   useEffect(() => {
+    // Ensure client device has an E2E keypair generated & public key uploaded
+    if (typeof window !== "undefined" && !sessionStorage.getItem("e2e_private_key_jwk")) {
+      generateE2EKeyPair().then((keys) => {
+        sessionStorage.setItem("e2e_private_key_jwk", JSON.stringify(keys.privateKeyJwk));
+        sessionStorage.setItem("e2e_public_key_hex", keys.publicKeyRawHex);
+        if (api.getToken()) {
+          api.updateProfile({ publicKey: keys.publicKeyRawHex }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+
     // 0. Sync Current User from Token if previously logged in
     if (api.getToken()) {
       api.getMe().then((res) => {
@@ -418,17 +455,138 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       syncConnections();
     }
 
-    const pollTimer = setInterval(() => {
-      if (api.getToken()) {
-        syncConnections();
-        chatsRef.current.forEach((c) => {
-          if (c.userId) {
-            syncMessages(c.userId);
-            syncPresence(c.userId);
-          }
-        });
+      // Connect Socket.IO for real-time WebSocket messaging
+      const token = api.getToken();
+      if (token) {
+        const socket = connectSocket(token);
+        if (socket) {
+          socket.on("connect", () => {
+            syncConnections();
+            chatsRef.current.forEach((c) => {
+              if (c.userId) {
+                syncMessages(c.userId);
+                syncPresence(c.userId);
+              }
+            });
+          });
+
+          socket.on("newMessage", async (m: any) => {
+            if (!m || !m.id) return;
+            if (knownMsgIds.current.has(m.id)) return;
+            knownMsgIds.current.add(m.id);
+
+            const currentUserId = meRef.current?.id;
+            const isFromMe = m.senderId === currentUserId;
+            const partnerId = isFromMe ? m.receiverId : m.senderId;
+            let content = m.encryptedContent || "";
+
+            const partnerPerson = personById(partnerId);
+            const partnerPublicKeyHex = (partnerPerson as any)?.publicKey;
+            const myPrivateKeyJwkRaw = sessionStorage.getItem("e2e_private_key_jwk");
+
+            if (myPrivateKeyJwkRaw && partnerPublicKeyHex && m.nonce && m.encryptedContent) {
+              try {
+                const myPrivateKeyJwk = JSON.parse(myPrivateKeyJwkRaw);
+                content = await decryptClientMessage(m.encryptedContent, m.nonce, myPrivateKeyJwk, partnerPublicKeyHex);
+              } catch (e) {}
+            }
+
+            let kind: "text" | "image" | "doc" = "text";
+            let meta: { name?: string; size?: string; url?: string } | undefined = undefined;
+
+            if (
+              content.startsWith("data:image/") ||
+              ((content.startsWith("http://") || content.startsWith("https://")) &&
+                (content.includes(".png") || content.includes(".jpg") || content.includes(".jpeg") || content.includes(".webp")))
+            ) {
+              kind = "image";
+              meta = { name: "Photo", url: content };
+            } else if (content.startsWith("[Photo:") || content === "[Photo]") {
+              kind = "image";
+              const match = content.match(/\[Photo:\s*(.*?)\]/);
+              meta = { name: match ? match[1] : "Photo" };
+            } else if (content.startsWith("[Document:")) {
+              kind = "doc";
+              const match = content.match(/\[Document:\s*(.*?)\]/);
+              meta = { name: match ? match[1] : "Document.pdf", size: "Document" };
+            }
+
+            const d = new Date(m.createdAt || Date.now());
+            const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+
+            const newMsg: ChatMsg = {
+              id: m.id,
+              fromMe: isFromMe,
+              kind,
+              text: kind === "text" ? content : "",
+              meta,
+              time,
+              status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
+            };
+
+            const chatId = `c_${partnerId}`;
+            const isCurrentlyInThisChat = activeChatRef.current === chatId || activeChatRef.current === partnerId;
+
+            if (!isFromMe) {
+              socket.emit("messageDelivered", { messageId: m.id });
+              if (isCurrentlyInThisChat) {
+                socket.emit("messageRead", { messageId: m.id });
+              } else {
+                const latestIncomingText = kind === "image" ? "📷 Sent a photo" : kind === "doc" ? `📄 ${meta?.name || "Document"}` : content;
+                toast(`💬 ${partnerPerson.name}: ${latestIncomingText}`);
+              }
+            }
+
+            setChats((prev) => {
+              const exists = prev.find((c) => c.userId === partnerId || c.id === chatId);
+              if (exists) {
+                const msgsExist = exists.msgs.some((msg) => msg.id === m.id);
+                const updatedMsgs = msgsExist ? exists.msgs : [...exists.msgs, newMsg];
+                const updatedUnread = isCurrentlyInThisChat ? 0 : (exists.unread || 0) + (isFromMe ? 0 : 1);
+                return prev.map((c) =>
+                  c.userId === partnerId || c.id === chatId
+                    ? { ...c, locked: false, msgs: updatedMsgs, unread: updatedUnread }
+                    : c
+                );
+              } else {
+                return [
+                  ...prev,
+                  {
+                    id: chatId,
+                    userId: partnerId,
+                    online: false,
+                    lastSeen: "Offline",
+                    unread: isCurrentlyInThisChat ? 0 : (isFromMe ? 0 : 1),
+                    locked: false,
+                    msgs: [newMsg],
+                  },
+                ];
+              }
+            });
+          });
+
+          socket.on("messageStatusUpdate", (data: { messageId: string; status: string }) => {
+            if (!data?.messageId) return;
+            const newStatus = data.status?.toLowerCase() === "read" ? "read" : data.status?.toLowerCase() === "delivered" ? "delivered" : "sent";
+            setChats((prev) =>
+              prev.map((c) => ({
+                ...c,
+                msgs: c.msgs.map((m) => (m.id === data.messageId ? { ...m, status: newStatus } : m)),
+              }))
+            );
+          });
+
+          socket.on("userTyping", (data: { senderId: string }) => {
+            if (!data?.senderId) return;
+            setTyping((prev) => ({ ...prev, [`c_${data.senderId}`]: true, [data.senderId]: true }));
+          });
+
+          socket.on("userStoppedTyping", (data: { senderId: string }) => {
+            if (!data?.senderId) return;
+            setTyping((prev) => ({ ...prev, [`c_${data.senderId}`]: false, [data.senderId]: false }));
+          });
+        }
       }
-    }, 3000);
 
     const onFocus = () => {
       if (api.getToken()) {
@@ -508,7 +666,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const heartbeatTimer = setInterval(heartbeat, 25000);
 
     return () => {
-      clearInterval(pollTimer);
       clearInterval(heartbeatTimer);
       window.removeEventListener("focus", onFocus);
     };
@@ -640,45 +797,71 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const res = await api.getMessages(userId);
         if (res.success && res.data?.items) {
           const currentUserId = me.id;
-          const formattedMsgs: ChatMsg[] = res.data.items.map((m: any) => {
-            const d = new Date(m.createdAt);
-            const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-            const isFromMe = m.senderId === currentUserId;
-            const content = m.encryptedContent || "";
+          const myPrivateKeyJwkRaw = sessionStorage.getItem("e2e_private_key_jwk");
 
-            let kind: "text" | "image" | "doc" = "text";
-            let meta: { name?: string; size?: string; url?: string } | undefined = undefined;
+          const formattedMsgs: ChatMsg[] = await Promise.all(
+            res.data.items.map(async (m: any) => {
+              const d = new Date(m.createdAt);
+              const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+              const isFromMe = m.senderId === currentUserId;
+              let content = m.encryptedContent || "";
 
-            if (
-              content.startsWith("data:image/") ||
-              ((content.startsWith("http://") || content.startsWith("https://")) &&
-                (content.includes(".png") ||
-                  content.includes(".jpg") ||
-                  content.includes(".jpeg") ||
-                  content.includes(".webp")))
-            ) {
-              kind = "image";
-              meta = { name: "Photo", url: content };
-            } else if (content.startsWith("[Photo:") || content === "[Photo]") {
-              kind = "image";
-              const match = content.match(/\[Photo:\s*(.*?)\]/);
-              meta = { name: match ? match[1] : "Photo" };
-            } else if (content.startsWith("[Document:")) {
-              kind = "doc";
-              const match = content.match(/\[Document:\s*(.*?)\]/);
-              meta = { name: match ? match[1] : "Document.pdf", size: "Document" };
-            }
+              const partnerId = isFromMe ? m.receiverId : m.senderId;
+              const partnerPerson = personById(partnerId);
+              let partnerPublicKeyHex = (partnerPerson as any)?.publicKey;
+              if (!partnerPublicKeyHex) {
+                try {
+                  const keyRes = await api.getPublicKey(partnerId);
+                  if (keyRes.success && keyRes.data?.publicKey) {
+                    partnerPublicKeyHex = keyRes.data.publicKey;
+                    (partnerPerson as any).publicKey = partnerPublicKeyHex;
+                  }
+                } catch (e) {}
+              }
 
-            return {
-              id: m.id,
-              fromMe: isFromMe,
-              kind,
-              text: kind === "text" ? content : "",
-              meta,
-              time,
-              status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
-            };
-          });
+              if (myPrivateKeyJwkRaw && partnerPublicKeyHex && m.nonce && m.encryptedContent) {
+                try {
+                  const myPrivateKeyJwk = JSON.parse(myPrivateKeyJwkRaw);
+                  content = await decryptClientMessage(m.encryptedContent, m.nonce, myPrivateKeyJwk, partnerPublicKeyHex);
+                } catch (e) {
+                  // Fallback for unencrypted legacy content
+                }
+              }
+
+              let kind: "text" | "image" | "doc" = "text";
+              let meta: { name?: string; size?: string; url?: string } | undefined = undefined;
+
+              if (
+                content.startsWith("data:image/") ||
+                ((content.startsWith("http://") || content.startsWith("https://")) &&
+                  (content.includes(".png") ||
+                    content.includes(".jpg") ||
+                    content.includes(".jpeg") ||
+                    content.includes(".webp")))
+              ) {
+                kind = "image";
+                meta = { name: "Photo", url: content };
+              } else if (content.startsWith("[Photo:") || content === "[Photo]") {
+                kind = "image";
+                const match = content.match(/\[Photo:\s*(.*?)\]/);
+                meta = { name: match ? match[1] : "Photo" };
+              } else if (content.startsWith("[Document:")) {
+                kind = "doc";
+                const match = content.match(/\[Document:\s*(.*?)\]/);
+                meta = { name: match ? match[1] : "Document.pdf", size: "Document" };
+              }
+
+              return {
+                id: m.id,
+                fromMe: isFromMe,
+                kind,
+                text: kind === "text" ? content : "",
+                meta,
+                time,
+                status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
+              };
+            })
+          );
 
           const chatId = `c_${userId}`;
           const isCurrentlyInThisChat = activeChatRef.current === chatId || activeChatRef.current === userId;
@@ -751,6 +934,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {}
   }, []);
 
+  const sendTyping = useCallback((receiverId: string) => {
+    const s = getSocket();
+    if (s && s.connected) {
+      s.emit("typing", { receiverId });
+    }
+  }, []);
+
+  const sendStopTyping = useCallback((receiverId: string) => {
+    const s = getSocket();
+    if (s && s.connected) {
+      s.emit("stopTyping", { receiverId });
+    }
+  }, []);
+
   const sendChat = useCallback(
     async (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => {
       const chat = chats.find((c) => c.id === chatId || c.userId === chatId);
@@ -779,24 +976,77 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           content = `[Document: ${msg.meta?.name || "Document"}]`;
         }
 
-        const res = await api.sendMessage(chat.userId, content);
-        if (res.success && res.data?.id) {
-          setChats((cs) =>
-            cs.map((c) =>
-              c.id === chat.id
-                ? {
-                    ...c,
-                    msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "delivered" } : m)),
-                  }
-                : c
-            )
-          );
+        let encryptedContent = content;
+        let nonce: string | undefined = undefined;
+
+        const myPrivateKeyJwkRaw = sessionStorage.getItem("e2e_private_key_jwk");
+        const peerPerson = personById(chat.userId);
+        let recipientPublicKeyHex = (peerPerson as any)?.publicKey;
+        if (!recipientPublicKeyHex) {
+          try {
+            const keyRes = await api.getPublicKey(chat.userId);
+            if (keyRes.success && keyRes.data?.publicKey) {
+              recipientPublicKeyHex = keyRes.data.publicKey;
+              (peerPerson as any).publicKey = recipientPublicKeyHex;
+            }
+          } catch (e) {}
         }
-      } catch (e) {
-        console.warn("Failed to send message:", e);
+
+        if (myPrivateKeyJwkRaw && recipientPublicKeyHex) {
+          try {
+            const myPrivateKeyJwk = JSON.parse(myPrivateKeyJwkRaw);
+            const encResult = await encryptClientMessage(content, myPrivateKeyJwk, recipientPublicKeyHex);
+            encryptedContent = encResult.encryptedContent;
+            nonce = encResult.nonce;
+          } catch (_e) {
+          }
+        }
+
+        const socket = getSocket();
+        if (socket && socket.connected) {
+          socket.emit(
+            "sendMessage",
+            {
+              receiverId: chat.userId,
+              encryptedContent,
+              nonce,
+              senderPublicKey: recipientPublicKeyHex,
+            },
+            (res: any) => {
+              if (res && res.success && res.message?.id) {
+                setChats((cs) =>
+                  cs.map((c) =>
+                    c.id === chat.id
+                      ? {
+                          ...c,
+                          msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.message.id, status: "delivered" } : m)),
+                        }
+                      : c
+                  )
+                );
+              }
+            }
+          );
+          sendStopTyping(chat.userId);
+        } else {
+          const res = await api.sendMessage(chat.userId, encryptedContent, nonce);
+          if (res.success && res.data?.id) {
+            setChats((cs) =>
+              cs.map((c) =>
+                c.id === chat.id
+                  ? {
+                      ...c,
+                      msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "delivered" } : m)),
+                    }
+                  : c
+              )
+            );
+          }
+        }
+      } catch (_e) {
       }
     },
-    [chats]
+    [chats, sendStopTyping]
   );
 
   const toggleUp = useCallback((threadId: string) => {
@@ -839,8 +1089,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       toast("Discussion post deleted");
       try {
         await api.deleteDiscussion(threadId);
-      } catch (err: any) {
-        console.warn("Failed to delete discussion from backend:", err);
+      } catch (_err) {
+        // Backend sync failure is non-fatal; optimistic delete already applied
       }
     },
     [toast]
@@ -1012,15 +1262,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           bio: data.about,
           city: data.city,
         });
-      } catch (err) {
-        console.warn("Failed to persist profile update to backend:", err);
+      } catch (_err) {
+        // Backend profile sync failure is non-fatal; local state already updated
       }
     },
     []
   );
 
   const logout = useCallback(() => {
-    api.setToken(null);
+    disconnectSocket();
+    api.logoutBackend();
     clearStack();
     setTab("home");
     setPhase("auth");
@@ -1031,7 +1282,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.deleteAccount();
     } catch (e) {}
-    api.setToken(null);
+    api.logoutBackend();
     clearStack();
     setTab("home");
     setPhase("splash");
@@ -1072,13 +1323,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       phase, setPhase, role, setRole, me, setMe, completeRegister,
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
-      chats, activeChat, setActiveChat, sendChat, syncMessages, syncPresence, typing, unlockChat,
+      chats, activeChat, setActiveChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence, typing, unlockChat,
       allJobs, addJob, applyJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
-      logout, deleteAccount, updateProfile,
+      logout,
+      deleteAccount,
+      updateProfile,
     }),
-    [phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack, toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent, chats, activeChat, sendChat, syncMessages, syncPresence, typing, unlockChat, allJobs, addJob, applyJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile]
+    [
+      phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack,
+      toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent,
+      chats, activeChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence,
+      typing, unlockChat, allJobs, addJob, applyJob, appliedJobIds, allThreads, upvoted,
+      toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin,
+      mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs,
+      unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile,
+    ]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -1092,24 +1353,32 @@ export function useStore() {
 
 const dynamicUserMap = new Map<string, Person>();
 export const registerDynamicUser = (p: Person) => {
-  dynamicUserMap.set(p.id, p);
+  const formatted = {
+    ...p,
+    name: capitalizeName(p.name),
+  };
+  dynamicUserMap.set(p.id, formatted);
 };
 
 export const personById = (id: string): Person => {
-  return (
+  const p =
     dynamicUserMap.get(id) ||
     people.find((p) => p.id === id) || {
       id: id || "member",
       name: "JECRC Member",
-      role: "alumni",
+      role: "alumni" as const,
       headline: "JECRC Network Member",
       branch: "CSE",
       batch: "2024",
       city: "Jaipur",
       color: "#0F2A5E",
       about: "Verified member of JECRC Foundation network.",
-    }
-  );
+    };
+
+  return {
+    ...p,
+    name: capitalizeName(p.name),
+  };
 };
 
 export const allGroups = seedGroups;

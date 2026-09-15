@@ -12,7 +12,7 @@ export class StorageService {
    */
   async uploadFile(
     file: { originalname: string; buffer: Buffer; mimetype: string },
-    folder: 'avatars' | 'posts' | 'resumes' = 'avatars',
+    folder: 'avatars' | 'posts' | 'resumes' | 'chat' = 'chat',
   ): Promise<string> {
     const bucket = this.configService.get<string>('AWS_S3_BUCKET', 'alumni-app-storage');
     const region = this.configService.get<string>('AWS_REGION', 'us-east-1');
@@ -23,5 +23,30 @@ export class StorageService {
 
     // Returns standard AWS S3 / CloudFront URL
     return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+  }
+
+  /**
+   * Upload Base64 image payload to S3 object storage
+   */
+  async uploadBase64Image(
+    base64Data: string,
+    folder: 'avatars' | 'posts' | 'resumes' | 'chat' = 'chat',
+    filename: string = 'chat_image.png',
+  ): Promise<string> {
+    const matches = base64Data.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    let buffer: Buffer;
+    let mimetype = 'image/png';
+
+    if (matches && matches.length === 3) {
+      mimetype = matches[1];
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      buffer = Buffer.from(base64Data, 'base64');
+    }
+
+    return await this.uploadFile(
+      { originalname: filename, buffer, mimetype },
+      folder,
+    );
   }
 }

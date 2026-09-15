@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
@@ -52,24 +54,30 @@ export class AuthService {
 
   /**
    * Register a new Student or Alumni
-   * Sends a one-time OTP to Email or Mobile
+   * Sends a one-time OTP to Email
    */
   async register(dto: RegisterDto) {
-    if (!dto.email && !dto.mobile) {
-      throw new BadRequestException('At least one of email or mobile number must be provided');
+    if (!dto.email) {
+      throw new BadRequestException('Email address is required for registration and OTP verification');
     }
 
-    const cleanEmail = dto.email ? dto.email.trim().toLowerCase() : undefined;
+    const cleanEmail = dto.email.trim().toLowerCase();
     const cleanMobile = dto.mobile ? dto.mobile.trim() : undefined;
+    const cleanName = dto.name
+      .trim()
+      .split(/\s+/)
+      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''))
+      .join(' ');
 
-    const channel = cleanMobile ? OtpChannel.SMS : OtpChannel.EMAIL;
-    const destination = cleanMobile || cleanEmail!;
+    const channel = OtpChannel.EMAIL;
+    const destination = cleanEmail;
 
     // Check existing users (strictly 1 account per email/mobile)
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [
-          ...(cleanEmail ? [{ email: cleanEmail }, { email: dto.email.trim() }] : []),
+          { email: cleanEmail },
+          { email: dto.email.trim() },
           ...(cleanMobile ? [{ mobile: cleanMobile }] : []),
         ],
       },
@@ -87,8 +95,8 @@ export class AuthService {
     const user = await this.runInTx(async (tx) => {
       const newUser = await tx.user.create({
         data: {
-          name: dto.name.trim(),
-          email: cleanEmail || null,
+          name: cleanName,
+          email: cleanEmail,
           mobile: cleanMobile || null,
           passwordHash,
           role: dto.role,
@@ -122,7 +130,7 @@ export class AuthService {
       return newUser;
     });
 
-    // Generate and send OTP
+    // Generate and send OTP via Email
     const otpResult = await this.otpService.sendOtp(destination, channel);
 
     await this.prisma.otpVerification.create({
@@ -138,7 +146,7 @@ export class AuthService {
       userId: user.id,
       channel,
       destination,
-      message: `Registration successful. One-time verification OTP sent via ${channel}.`,
+      message: `Registration successful. One-time verification OTP sent via EMAIL to ${cleanEmail}.`,
       previewOtpForDev: otpResult.previewOtpForDev,
     };
   }
@@ -221,17 +229,17 @@ export class AuthService {
 
     const user = await this.findUserByEmailOrMobile(dto.emailOrMobile);
     if (!user) {
-      throw new UnauthorizedException('Invalid email/mobile or password');
+      throw new UnauthorizedException('No account found with this email address. Please check your email or sign up.');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email/mobile or password');
+      throw new UnauthorizedException('Incorrect password. Please check your password and try again.');
     }
 
     if (!user.isVerified) {
       throw new ForbiddenException(
-        'Account is not yet verified. Please verify the one-time registration OTP sent to your contact.',
+        'Account is not yet verified. Please verify the one-time registration OTP sent to your email.',
       );
     }
 
@@ -243,6 +251,18 @@ export class AuthService {
       user: this.sanitizeUser(user),
       tokens,
     };
+  }
+
+  /**
+   * Logout user by revoking active refresh token session
+   */
+  async logout(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { refreshTokenHash: null },
+    });
+
+    return { message: 'Successfully logged out' };
   }
 
   /**
@@ -264,8 +284,12 @@ export class AuthService {
       throw new BadRequestException('Account is already verified. You can log in directly with your password.');
     }
 
-    const channel = user.mobile ? OtpChannel.SMS : OtpChannel.EMAIL;
-    const destination = user.mobile || user.email!;
+    if (!user.email) {
+      throw new BadRequestException('No registered email address found for this user account.');
+    }
+
+    const channel = OtpChannel.EMAIL;
+    const destination = user.email;
 
     const otpResult = await this.otpService.sendOtp(destination, channel);
 
@@ -284,7 +308,7 @@ export class AuthService {
     });
 
     return {
-      message: `New OTP sent via ${channel}`,
+      message: `New OTP sent via EMAIL to ${user.email}`,
       previewOtpForDev: otpResult.previewOtpForDev,
     };
   }
@@ -322,17 +346,17 @@ export class AuthService {
   }
 
   /**
-   * Forgot Password - triggers OTP to verified channel
+   * Forgot Password - triggers OTP to verified email
    */
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.findUserByEmailOrMobile(dto.emailOrMobile);
-    if (!user) {
+    if (!user || !user.email) {
       // Don't reveal user existence
       return { message: 'If an account exists, a reset code has been dispatched.' };
     }
 
-    const channel = user.mobile ? OtpChannel.SMS : OtpChannel.EMAIL;
-    const destination = user.mobile || user.email!;
+    const channel = OtpChannel.EMAIL;
+    const destination = user.email;
     const otpResult = await this.otpService.sendOtp(destination, channel);
 
     await this.prisma.otpVerification.create({
@@ -345,7 +369,7 @@ export class AuthService {
     });
 
     return {
-      message: 'Password reset OTP has been sent.',
+      message: 'Password reset OTP has been sent to your email.',
       previewOtpForDev: otpResult.previewOtpForDev,
     };
   }
@@ -412,7 +436,35 @@ export class AuthService {
   /**
    * Look up pre-seeded institutional record for Alumni or Student
    */
-  async claimLookup(identifier: string, role?: string) {
+  async claimLookup(identifier: string, role?: string, clientIp?: string) {
+    const cleanId = (identifier || '').trim().toLowerCase();
+    const ipKey = clientIp ? `ratelimit:claim_lookup:ip:${clientIp}` : null;
+    const idKey = cleanId ? `ratelimit:claim_lookup:id:${cleanId}` : null;
+
+    // Stricter rate limit: 10 requests per 60 seconds (1 minute window) to prevent account enumeration
+    const MAX_LOOKUPS = 10;
+    const WINDOW_SECONDS = 60;
+
+    if (ipKey) {
+      const allowedIp = await this.redisService.checkRateLimit(ipKey, MAX_LOOKUPS, WINDOW_SECONDS);
+      if (!allowedIp) {
+        throw new HttpException(
+          'Too many claim lookup requests from this IP address. Please try again in a few minutes.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
+    if (idKey) {
+      const allowedId = await this.redisService.checkRateLimit(idKey, MAX_LOOKUPS, WINDOW_SECONDS);
+      if (!allowedId) {
+        throw new HttpException(
+          'Too many claim lookup requests for this record. Please try again in a few minutes.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [{ email: identifier }, { mobile: identifier }],
@@ -438,6 +490,7 @@ export class AuthService {
       if (!em) return '';
       const [u, d] = em.split('@');
       if (!d) return em;
+      if (u.length <= 2) return `${u[0]}***@${d}`;
       return `${u.slice(0, 2)}***@${d}`;
     };
 
@@ -446,7 +499,6 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
         maskedEmail: maskEmail(user.email),
         role: user.role,
         branch,
@@ -459,7 +511,7 @@ export class AuthService {
   }
 
   /**
-   * Send activation OTP to claim a profile
+   * Send activation OTP to claim a profile via Email
    */
   async claimSendOtp(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -469,10 +521,14 @@ export class AuthService {
       throw new NotFoundException('User record not found');
     }
 
-    const destination = user.email || user.mobile;
-    const channel = user.email ? OtpChannel.EMAIL : OtpChannel.SMS;
+    if (!user.email) {
+      throw new BadRequestException('No email address registered for this institutional profile');
+    }
 
-    const otpResult = await this.otpService.sendOtp(destination!, channel);
+    const destination = user.email;
+    const channel = OtpChannel.EMAIL;
+
+    const otpResult = await this.otpService.sendOtp(destination, channel);
 
     await this.prisma.otpVerification.deleteMany({ where: { userId: user.id } });
     await this.prisma.otpVerification.create({
@@ -592,6 +648,8 @@ export class AuthService {
   private async generateTokens(user: User) {
     const accessSecret = this.configService.getOrThrow<string>('JWT_SECRET');
     const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
+    const accessExpiresIn = this.configService.get<string>('JWT_ACCESS_EXPIRATION', '15m');
+    const refreshExpiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d');
 
     const payload = {
       sub: user.id,
@@ -603,11 +661,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: accessSecret,
-        expiresIn: '15m',
+        expiresIn: accessExpiresIn as any,
       }),
       this.jwtService.signAsync(payload, {
         secret: refreshSecret,
-        expiresIn: '7d',
+        expiresIn: refreshExpiresIn as any,
       }),
     ]);
 

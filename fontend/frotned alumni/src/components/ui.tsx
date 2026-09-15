@@ -86,6 +86,16 @@ export function Field({
   );
 }
 
+/* ---------------- Capitalize Utility ---------------- */
+export function capitalizeName(str?: string): string {
+  if (!str) return "";
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : ""))
+    .join(" ");
+}
+
 /* ---------------- Avatar ---------------- */
 const gradients = [
   ["#0F2A5E", "#24468F"], ["#7C93D6", "#4A5FA0"], ["#F2A93B", "#DB8A1E"],
@@ -95,9 +105,10 @@ const gradients = [
 export function InitialsAvatar({
   name, size = 48, layoutId, className, rounded = "rounded-full",
 }: { name: string; size?: number; layoutId?: string; className?: string; rounded?: string }) {
-  const idx = (name.charCodeAt(0) + (name.charCodeAt(name.length - 1) || 0)) % gradients.length;
+  const safeName = capitalizeName(name || "User");
+  const idx = (safeName.charCodeAt(0) + (safeName.charCodeAt(safeName.length - 1) || 0)) % gradients.length;
   const [a, b] = gradients[idx];
-  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const initials = safeName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   return (
     <motion.div
       layoutId={layoutId}

@@ -18,19 +18,17 @@ export class RegisterDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiPropertyOptional({ example: 'rahul@alumni.edu', description: 'Email address' })
-  @ValidateIf((o) => !o.mobile || o.email)
+  @ApiProperty({ example: 'rahul@alumni.edu', description: 'Email address (Required for OTP verification)' })
   @IsEmail()
-  @IsOptional()
-  email?: string;
+  @IsNotEmpty({ message: 'Email address is required for registration and OTP verification' })
+  email: string;
 
   @ApiPropertyOptional({ example: '+919876543210', description: 'Mobile number with country code' })
-  @ValidateIf((o) => !o.email || o.mobile)
   @IsString()
   @IsOptional()
   mobile?: string;
 
-  @ApiProperty({ example: 'StrongP@ssw0rd!', minLength: 6 })
+  @ApiProperty({ example: 'P@ssw0rd123', minLength: 6 })
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
   password: string;

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { GlobalThrottlerGuard } from './common/guards/global-throttler.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { OtpModule } from './services/otp/otp.module';
@@ -16,6 +18,7 @@ import { MentorshipModule } from './modules/mentorship/mentorship.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -44,6 +47,13 @@ import { AdminModule } from './modules/admin/admin.module';
     GroupsModule,
     NotificationsModule,
     AdminModule,
+    HealthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: GlobalThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

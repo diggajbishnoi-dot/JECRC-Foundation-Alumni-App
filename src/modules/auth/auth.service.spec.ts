@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -89,7 +89,7 @@ describe('AuthService', () => {
   });
 
   describe('Registration & One-Time OTP Flow', () => {
-    it('should reject registration when neither email nor mobile is provided', async () => {
+    it('should reject registration when email is not provided', async () => {
       await expect(
         service.register({
           name: 'Test',
@@ -99,19 +99,19 @@ describe('AuthService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should register student and send one-time OTP to mobile via SMS', async () => {
+    it('should register student and send one-time OTP via EMAIL', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.user.create.mockResolvedValue({ id: 'user-1', name: 'Student' });
+      mockPrisma.user.create.mockResolvedValue({ id: 'user-1', name: 'Student', email: 'student@edu.com' });
       mockOtpService.sendOtp.mockResolvedValue({
-        channel: OtpChannel.SMS,
-        destination: '+919876543210',
+        channel: OtpChannel.EMAIL,
+        destination: 'student@edu.com',
         otpCodeHash: 'hashed_otp',
         expiresAt: new Date(Date.now() + 600000),
       });
 
       const res = await service.register({
         name: 'Student',
-        mobile: '+919876543210',
+        email: 'student@edu.com',
         password: 'Password@123',
         role: Role.STUDENT,
         branch: 'CSE',
@@ -120,8 +120,8 @@ describe('AuthService', () => {
       });
 
       expect(res.userId).toBe('user-1');
-      expect(res.channel).toBe(OtpChannel.SMS);
-      expect(mockOtpService.sendOtp).toHaveBeenCalledWith('+919876543210', OtpChannel.SMS);
+      expect(res.channel).toBe(OtpChannel.EMAIL);
+      expect(mockOtpService.sendOtp).toHaveBeenCalledWith('student@edu.com', OtpChannel.EMAIL);
     });
 
     it('should verify OTP, set isVerified=true, delete OTP record, and auto-issue JWT tokens', async () => {
@@ -318,6 +318,144 @@ describe('AuthService', () => {
       // User B should succeed
       const res = await service.verifyOtp({ emailOrMobile: 'b@alumni.edu', otp: '123456' });
       expect(res.user.isVerified).toBe(true);
+    });
+  });
+
+  describe('claimLookup Privacy Gating (P1-003)', () => {
+    it('should NOT expose unmasked full email address in lookup response', async () => {
+      const mockUser = {
+        id: 'user-claim-1',
+        name: 'Aarav Mehta',
+        email: 'aarav.mehta@jecrc.ac.in',
+        role: Role.ALUMNI,
+        city: 'Jaipur',
+        isVerified: false,
+        alumniDetails: {
+          branch: 'ECE',
+          batch: '2022',
+          currentCompany: 'TCS',
+        },
+      };
+
+      mockPrisma.user.findFirst.mockResolvedValue(mockUser);
+
+      const res = await service.claimLookup('aarav.mehta@jecrc.ac.in');
+
+      expect(res.found).toBe(true);
+      expect(res.user).toBeDefined();
+      expect(res.user.maskedEmail).toBe('aa***@jecrc.ac.in');
+      expect((res.user as any).email).toBeUndefined(); // Full unmasked email MUST NOT be present
+      expect((res.user as any).passwordHash).toBeUndefined();
+      expect((res.user as any).refreshTokenHash).toBeUndefined();
+    });
+
+    it('should return found=false when no user record matches identifier', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      const res = await service.claimLookup('nonexistent@jecrc.ac.in');
+
+      expect(res.found).toBe(false);
+      expect(res.user).toBeUndefined();
+      expect(res.message).toContain('No pre-existing college record found');
+    });
+
+    it('should enforce rate limiting on claimLookup when request limit is exceeded (P2-004)', async () => {
+      mockRedisService.checkRateLimit.mockResolvedValue(false);
+
+      await expect(
+        service.claimLookup('spammer@jecrc.ac.in', undefined, '10.0.0.1'),
+      ).rejects.toThrow(HttpException);
+    });
+
+    it('should allow claimLookup when request rate is under limit threshold (P2-004)', async () => {
+      mockRedisService.checkRateLimit.mockResolvedValue(true);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      const res = await service.claimLookup('legit@jecrc.ac.in', undefined, '10.0.0.1');
+
+      expect(res.found).toBe(false);
+      expect(mockRedisService.checkRateLimit).toHaveBeenCalledWith(
+        'ratelimit:claim_lookup:ip:10.0.0.1',
+        10,
+        60,
+      );
+    });
+  });
+
+  describe('Logout & Session Revocation (P1-004)', () => {
+    it('should nullify user refreshTokenHash in database on logout', async () => {
+      mockPrisma.user.update.mockResolvedValue({ id: 'user-logged-out', refreshTokenHash: null });
+
+      const res = await service.logout('user-logged-out');
+
+      expect(res.message).toBe('Successfully logged out');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-logged-out' },
+        data: { refreshTokenHash: null },
+      });
+    });
+
+    it('should reject refreshTokens request after user has logged out', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: 'user-logged-out' });
+      // User record after logout has refreshTokenHash = null
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-logged-out',
+        refreshTokenHash: null,
+      });
+
+      await expect(
+        service.refreshTokens({ refreshToken: 'mock_valid_signed_token' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('Configurable JWT Expiration (P2-003)', () => {
+    it('should pass configured JWT expiration times to signAsync when custom env values exist', async () => {
+      mockConfigService.get.mockImplementation((key: string, def: any) => {
+        if (key === 'JWT_ACCESS_EXPIRATION') return '30m';
+        if (key === 'JWT_REFRESH_EXPIRATION') return '14d';
+        return def;
+      });
+
+      mockJwtService.verify.mockReturnValue({ sub: 'user_jwt_exp_test' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user_jwt_exp_test',
+        email: 'test@jecrc.ac.in',
+        refreshTokenHash: await bcrypt.hash('valid_refresh_token', 10),
+      });
+
+      await service.refreshTokens({ refreshToken: 'valid_refresh_token' });
+
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ expiresIn: '30m' }),
+      );
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ expiresIn: '14d' }),
+      );
+    });
+
+    it('should fallback to 15m and 7d defaults when custom env values are absent', async () => {
+      mockConfigService.get.mockImplementation((_key: string, def: any) => def);
+
+      mockJwtService.verify.mockReturnValue({ sub: 'user_jwt_exp_test_default' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user_jwt_exp_test_default',
+        email: 'default@jecrc.ac.in',
+        refreshTokenHash: await bcrypt.hash('valid_refresh_token_def', 10),
+      });
+
+      await service.refreshTokens({ refreshToken: 'valid_refresh_token_def' });
+
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ expiresIn: '15m' }),
+      );
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ expiresIn: '7d' }),
+      );
     });
   });
 });

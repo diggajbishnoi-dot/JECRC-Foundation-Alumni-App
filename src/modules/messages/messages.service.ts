@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -9,6 +10,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { FcmService } from '../../services/fcm/fcm.service';
+import { StorageService } from '../../services/storage/storage.service';
 import { ConnectionsService } from '../connections/connections.service';
 import { SendMessageDto } from './dto/messages.dto';
 
@@ -21,7 +23,21 @@ export class MessagesService {
     private readonly connectionsService: ConnectionsService,
     private readonly redisService: RedisService,
     private readonly fcmService: FcmService,
+    private readonly storageService: StorageService,
   ) {}
+
+  /**
+   * Upload chat media/image attachment to Object Storage
+   */
+  async uploadAttachment(file: { originalname: string; buffer: Buffer; mimetype: string }) {
+    const url = await this.storageService.uploadFile(file, 'chat');
+    return { url };
+  }
+
+  async uploadBase64Attachment(base64Data: string, filename?: string) {
+    const url = await this.storageService.uploadBase64Image(base64Data, 'chat', filename || 'chat_image.png');
+    return { url };
+  }
 
   /**
    * Send End-to-End Encrypted Message
@@ -29,6 +45,10 @@ export class MessagesService {
    * Plaintext message content is structurally never handled or logged.
    */
   async sendMessage(senderId: string, dto: SendMessageDto) {
+    if (!dto.nonce || typeof dto.nonce !== 'string' || !dto.nonce.trim()) {
+      throw new BadRequestException('Nonce is required for encrypted message delivery');
+    }
+
     const isConnected = await this.connectionsService.areConnected(senderId, dto.receiverId);
     if (!isConnected) {
       throw new ForbiddenException(
@@ -36,7 +56,7 @@ export class MessagesService {
       );
     }
 
-    const nonce = dto.nonce || Buffer.from(Date.now().toString()).toString('base64');
+    const nonce = dto.nonce.trim();
     const message = await this.prisma.message.create({
       data: {
         senderId,

@@ -1,5 +1,6 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/roles.decorator';
 import { AuthService } from './auth.service';
 import {
@@ -24,7 +25,7 @@ export class AuthController {
   @Post('register')
   @ApiOperation({
     summary: 'Register Student or Alumni',
-    description: 'Registers user with email or mobile. Dispatches a 6-digit OTP to chosen channel.',
+    description: 'Registers user with email. Dispatches a 6-digit OTP to the registered email address.',
   })
   @ApiResponse({ status: 201, description: 'User registered, OTP sent' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
@@ -62,6 +63,19 @@ export class AuthController {
     return await this.authService.login(dto);
   }
 
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({
+    summary: 'Logout User',
+    description: 'Revokes the active refresh token session for the authenticated user, preventing token renewal.',
+  })
+  @ApiResponse({ status: 200, description: 'Successfully logged out' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async logout(@CurrentUser('id') userId: string) {
+    return await this.authService.logout(userId);
+  }
+
   @Public()
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
@@ -92,7 +106,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Request Password Reset OTP',
-    description: 'Dispatches OTP via registered email or SMS.',
+    description: 'Dispatches OTP via registered email address.',
   })
   @ApiResponse({ status: 200, description: 'Reset OTP dispatched' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -120,8 +134,14 @@ export class AuthController {
     description: 'Searches pre-imported college records by email or mobile to claim and activate profile.',
   })
   @ApiResponse({ status: 200, description: 'Lookup result returned' })
-  async claimLookup(@Body() dto: ClaimLookupDto) {
-    return await this.authService.claimLookup(dto.identifier, dto.role);
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
+  async claimLookup(@Body() dto: ClaimLookupDto, @Req() req: any) {
+    const clientIp =
+      (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req?.socket?.remoteAddress ||
+      req?.ip ||
+      '127.0.0.1';
+    return await this.authService.claimLookup(dto.identifier, dto.role, clientIp);
   }
 
   @Public()
