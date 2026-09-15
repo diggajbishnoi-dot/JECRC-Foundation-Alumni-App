@@ -30,6 +30,11 @@ export class CreatePostDto {
   @IsString()
   location?: string;
 
+  @ApiPropertyOptional({ example: '₹12–18 LPA or Undisclosed' })
+  @IsOptional()
+  @IsString()
+  pay?: string;
+
   @ApiPropertyOptional({ example: 'https://careers.microsoft.com/job/12345 or attachment url' })
   @IsOptional()
   @IsString()

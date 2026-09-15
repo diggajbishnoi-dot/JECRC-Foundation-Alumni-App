@@ -698,7 +698,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           location: item.location || "Bengaluru / Hybrid",
           type: item.type === "INTERNSHIP" ? "Internship" : "Full-time",
           mode: "Hybrid",
-          pay: "Competitive",
+          pay: item.pay || "Undisclosed",
           skills: ["Cloud", "System Architecture", "Engineering"],
           postedBy: item.user?.name || "Alumni Cell",
           postedAgo: "Recently",
@@ -1269,6 +1269,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       type: j.type === "Internship" ? "INTERNSHIP" : "JOB",
       company: j.company,
       location: j.location,
+      pay: j.pay,
     }).then((res) => {
       if (res.success) {
         toast("Job synced with backend!");

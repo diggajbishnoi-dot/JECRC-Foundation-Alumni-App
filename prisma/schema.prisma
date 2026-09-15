@@ -198,6 +198,7 @@ model Post {
   description   String
   company       String?
   location      String?
+  pay           String?
   attachmentUrl String?
   reportCount   Int      @default(0)
   createdAt     DateTime @default(now())
@@ -206,6 +207,7 @@ model Post {
   jobApplications JobApplication[]
 
   @@index([type])
+  @@index([userId])
   @@index([createdAt])
   @@map("posts")
 }
@@ -227,6 +229,7 @@ model DiscussionThread {
   upvotes     DiscussionUpvote[]
 
   @@index([category])
+  @@index([userId])
   @@index([groupId])
   @@index([createdAt])
   @@map("discussion_threads")
@@ -334,6 +337,7 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+  @@index([userId, createdAt])
   @@map("notifications")
 }
 

@@ -30,6 +30,7 @@ export class PostsService {
         description: dto.description,
         company: dto.company || null,
         location: dto.location || null,
+        pay: dto.pay || null,
         attachmentUrl: dto.attachmentUrl || null,
       },
       include: {
@@ -79,17 +80,17 @@ export class PostsService {
               studentDetails: true,
             },
           },
-          jobApplications: {
-            select: { id: true },
+          _count: {
+            select: { jobApplications: true },
           },
         },
       }),
       this.prisma.post.count({ where }),
     ]);
 
-    const formattedPosts = posts.map((p) => {
-      const applicantCount = p.jobApplications ? p.jobApplications.length : 0;
-      const { jobApplications, ...rest } = p as any;
+    const formattedPosts = posts.map((p: any) => {
+      const applicantCount = p._count?.jobApplications ?? p.jobApplications?.length ?? 0;
+      const { _count, jobApplications, ...rest } = p;
       return {
         ...rest,
         applicantCount,
@@ -124,8 +125,8 @@ export class PostsService {
             studentDetails: true,
           },
         },
-        jobApplications: {
-          select: { id: true },
+        _count: {
+          select: { jobApplications: true },
         },
       },
     });
@@ -134,8 +135,8 @@ export class PostsService {
       throw new NotFoundException('Post not found');
     }
 
-    const applicantCount = (post as any).jobApplications ? (post as any).jobApplications.length : 0;
-    const { jobApplications, ...rest } = post as any;
+    const applicantCount = (post as any)._count?.jobApplications ?? (post as any).jobApplications?.length ?? 0;
+    const { _count, jobApplications, ...rest } = post as any;
 
     return {
       ...rest,

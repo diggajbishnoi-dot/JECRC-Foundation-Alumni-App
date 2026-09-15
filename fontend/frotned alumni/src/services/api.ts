@@ -51,15 +51,25 @@ class ApiService {
     return this.refreshToken;
   }
 
+  private inflightRequests = new Map<string, Promise<any>>();
+
   private async request<T = any>(
     endpoint: string,
     options: RequestInit = {},
     isRetry = false,
   ): Promise<{ success: boolean; data?: T; error?: string }> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
-    };
+    const isGet = !options.method || options.method.toUpperCase() === 'GET';
+    const cacheKey = isGet ? `GET:${endpoint}` : null;
+
+    if (cacheKey && this.inflightRequests.has(cacheKey)) {
+      return this.inflightRequests.get(cacheKey)!;
+    }
+
+    const requestPromise = (async () => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string> || {}),
+      };
 
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
@@ -107,6 +117,16 @@ class ApiService {
     } catch (err: any) {
       return { success: false, error: err.message || 'Network connection failed' };
     }
+    })();
+
+    if (cacheKey) {
+      this.inflightRequests.set(cacheKey, requestPromise);
+      requestPromise.finally(() => {
+        this.inflightRequests.delete(cacheKey);
+      });
+    }
+
+    return requestPromise;
   }
 
   async refreshSession(): Promise<boolean> {
@@ -316,7 +336,7 @@ class ApiService {
     return await this.request(`/posts${query}`);
   }
 
-  async createPost(data: { title: string; description: string; type: 'GENERAL' | 'JOB' | 'INTERNSHIP'; company?: string; location?: string }) {
+  async createPost(data: { title: string; description: string; type: 'GENERAL' | 'JOB' | 'INTERNSHIP'; company?: string; location?: string; pay?: string }) {
     return await this.request('/posts', {
       method: 'POST',
       body: JSON.stringify(data),

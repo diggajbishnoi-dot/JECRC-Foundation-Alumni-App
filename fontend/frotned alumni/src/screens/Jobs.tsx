@@ -746,6 +746,7 @@ export function PostJobScreen({ embedded }: { embedded?: boolean }) {
   const [f, setF] = useState({
     title: "", company: me.company && me.company !== "—" ? me.company : "", role: "", location: "",
     type: "Full-time" as Job["type"], mode: "Hybrid" as Job["mode"], desc: "", exp: "0–2 years",
+    payType: "undisclosed" as "disclosed" | "undisclosed", payAmount: "",
     deadline: "", via: "message" as "message" | "link", link: "",
   });
   const [skills, setSkills] = useState<string[]>([]);
@@ -793,11 +794,14 @@ export function PostJobScreen({ embedded }: { embedded?: boolean }) {
     if (f.via === "link" && !/^https?:\/\/.+\..+/.test(f.link)) e.link = "Enter a valid https link";
     setErrors(e);
     if (Object.keys(e).length) return;
+    
+    const calculatedPay = f.payType === "undisclosed" || !f.payAmount.trim() ? "Undisclosed" : f.payAmount.trim();
+
     setLoading(true);
     setTimeout(() => {
       addJob({
         id: `j_${Date.now()}`, title: f.title, company: f.company, location: f.location,
-        type: f.type, mode: f.mode, pay: f.exp === "0–2 years" ? "₹8–14 LPA" : "₹15–25 LPA",
+        type: f.type, mode: f.mode, pay: calculatedPay,
         skills, postedBy: me.name, postedAgo: "now", deadline: f.deadline, applicants: 0,
         branch: me.branch, desc: f.desc, mine: true,
       });
@@ -849,6 +853,45 @@ export function PostJobScreen({ embedded }: { embedded?: boolean }) {
               <Field label="Location" value={f.location} onChange={(v) => up("location", v)} placeholder="e.g. Bengaluru / Remote" error={errors.location} />
               <div><span className="label">Type</span>{pills(["Full-time", "Internship", "Part-time"], f.type, (v) => up("type", v))}</div>
               <div><span className="label">Work mode</span>{pills(["Onsite", "Remote", "Hybrid"], f.mode, (v) => up("mode", v))}</div>
+              
+              {/* Salary / Stipend Section */}
+              <div>
+                <span className="label">Salary / Stipend</span>
+                {pills(
+                  ["Undisclosed", "Specify Pay"],
+                  f.payType === "undisclosed" ? "Undisclosed" : "Specify Pay",
+                  (v) => up("payType", v === "Undisclosed" ? "undisclosed" : "disclosed")
+                )}
+                {f.payType === "disclosed" && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 space-y-2">
+                    <p className="text-[11.5px] font-semibold text-sub">Quick presets or enter custom below:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(f.type === "Internship" 
+                        ? ["₹10k–20k/mo", "₹20k–35k/mo", "₹35k+/mo", "Unpaid"] 
+                        : ["₹6–10 LPA", "₹10–16 LPA", "₹16–25 LPA", "₹25+ LPA"]
+                      ).map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => up("payAmount", preset)}
+                          className={`rounded-lg px-2.5 py-1 text-[11.5px] font-semibold border transition-all ${
+                            f.payAmount === preset ? "bg-navy text-white border-navy" : "bg-white text-sub border-line hover:border-navy-400"
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                    <Field
+                      label="Custom Pay Amount / Text"
+                      value={f.payAmount}
+                      onChange={(v) => up("payAmount", v)}
+                      placeholder={f.type === "Internship" ? "e.g. ₹25,000 / month or Unpaid" : "e.g. ₹12–15 LPA or Competitive"}
+                    />
+                  </motion.div>
+                )}
+              </div>
+
               <div>
                 <span className="label">Description</span>
                 <textarea
