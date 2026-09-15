@@ -164,7 +164,7 @@ export default function AuthFlow() {
     title: "",
     batch: "2020",
     year: "3rd Year",
-    passout: "2026",
+    passout: "2024",
     collegeId: "",
     city: "Jaipur",
   });
@@ -1115,14 +1115,19 @@ export default function AuthFlow() {
                   <>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <span className="label">Batch</span>
+                        <span className="label">Batch (Joining Year)</span>
                         <select
                           className={selectStyle}
                           value={reg.batch}
-                          onChange={(e) => up("batch", e.target.value)}
+                          onChange={(e) => {
+                            const newBatch = e.target.value;
+                            const newPassout = (parseInt(newBatch, 10) + 4).toString();
+                            up("batch", newBatch);
+                            up("passout", newPassout);
+                          }}
                         >
-                          {Array.from({ length: 23 }, (_, i) => `${2026 - i}`).map((y) => (
-                            <option key={y}>{y}</option>
+                          {Array.from({ length: 27 }, (_, i) => `${2026 - i}`).map((y) => (
+                            <option key={y} value={y}>{y}</option>
                           ))}
                         </select>
                       </div>
@@ -1130,11 +1135,19 @@ export default function AuthFlow() {
                         <span className="label">Passout Year</span>
                         <select
                           className={selectStyle}
-                          value={reg.batch}
-                          onChange={(e) => up("batch", e.target.value)}
+                          value={reg.passout || (parseInt(reg.batch || "2020", 10) + 4).toString()}
+                          onChange={(e) => {
+                            const newPassout = e.target.value;
+                            const passYear = parseInt(newPassout, 10);
+                            const currentBatch = parseInt(reg.batch || "2020", 10);
+                            if (passYear - currentBatch < 4) {
+                              up("batch", (passYear - 4).toString());
+                            }
+                            up("passout", newPassout);
+                          }}
                         >
-                          {Array.from({ length: 23 }, (_, i) => `${2026 - i}`).map((y) => (
-                            <option key={y}>{y}</option>
+                          {Array.from({ length: 27 }, (_, i) => `${2030 - i}`).map((y) => (
+                            <option key={y} value={y}>{y}</option>
                           ))}
                         </select>
                       </div>
