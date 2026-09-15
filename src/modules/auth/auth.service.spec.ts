@@ -46,6 +46,9 @@ describe('AuthService', () => {
 
   const mockRedisService = {
     checkRateLimit: jest.fn().mockResolvedValue(true),
+    getFailedAttempts: jest.fn().mockResolvedValue(0),
+    incrementFailedAttempts: jest.fn().mockResolvedValue(1),
+    resetFailedAttempts: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockJwtService = {
@@ -55,6 +58,14 @@ describe('AuthService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string, def: any) => def),
+    getOrThrow: jest.fn((key: string) => {
+      const testValues: Record<string, string> = {
+        JWT_SECRET: 'test-access-secret',
+        JWT_REFRESH_SECRET: 'test-refresh-secret',
+      };
+      if (key in testValues) return testValues[key];
+      throw new Error(`Missing required env var: ${key}`);
+    }),
   };
 
   beforeEach(async () => {
@@ -181,6 +192,132 @@ describe('AuthService', () => {
           password: 'SecretPass123',
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('OTP Brute-Force Protection', () => {
+    const baseUser = {
+      id: 'user-bf',
+      email: 'bf@alumni.edu',
+      isVerified: false,
+      role: Role.STUDENT,
+    };
+    const hashedOtp = { id: 'otp-1', userId: 'user-bf', otpCodeHash: 'hashed_otp' };
+
+    beforeEach(() => {
+      mockPrisma.user.findFirst.mockResolvedValue(baseUser);
+      mockPrisma.otpVerification.findFirst.mockResolvedValue(hashedOtp);
+      mockOtpService.verifyOtp.mockResolvedValue(false); // wrong OTP by default
+      mockRedisService.getFailedAttempts.mockResolvedValue(0);
+      mockRedisService.incrementFailedAttempts.mockResolvedValue(1);
+      mockRedisService.resetFailedAttempts.mockResolvedValue(undefined);
+    });
+
+    it('should allow verifyOtp when no previous failed attempts', async () => {
+      mockOtpService.verifyOtp.mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({ ...baseUser, isVerified: true });
+      mockPrisma.otpVerification.deleteMany.mockResolvedValue({ count: 1 });
+      mockRedisService.getFailedAttempts.mockResolvedValue(0);
+
+      const res = await service.verifyOtp({ emailOrMobile: 'bf@alumni.edu', otp: '123456' });
+      expect(res.user.isVerified).toBe(true);
+    });
+
+    it('should increment failed-attempt counter on wrong OTP', async () => {
+      mockOtpService.verifyOtp.mockResolvedValue(false);
+      mockRedisService.getFailedAttempts.mockResolvedValue(0);
+
+      await expect(
+        service.verifyOtp({ emailOrMobile: 'bf@alumni.edu', otp: '000000' }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockRedisService.incrementFailedAttempts).toHaveBeenCalledWith(
+        'otp_attempts:user-bf',
+        600,
+      );
+    });
+
+    it('should block verifyOtp after 5 failed attempts', async () => {
+      mockRedisService.getFailedAttempts.mockResolvedValue(5);
+
+      await expect(
+        service.verifyOtp({ emailOrMobile: 'bf@alumni.edu', otp: '000000' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      // Must not attempt bcrypt comparison when blocked
+      expect(mockOtpService.verifyOtp).not.toHaveBeenCalled();
+      // Must not increment further (already blocked)
+      expect(mockRedisService.incrementFailedAttempts).not.toHaveBeenCalled();
+    });
+
+    it('should reset the failed-attempt counter after a correct OTP', async () => {
+      mockOtpService.verifyOtp.mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({ ...baseUser, isVerified: true });
+      mockPrisma.otpVerification.deleteMany.mockResolvedValue({ count: 1 });
+      mockRedisService.getFailedAttempts.mockResolvedValue(3);
+
+      await service.verifyOtp({ emailOrMobile: 'bf@alumni.edu', otp: '123456' });
+
+      expect(mockRedisService.resetFailedAttempts).toHaveBeenCalledWith('otp_attempts:user-bf');
+    });
+
+    it('should protect resetPassword: block after 5 failed attempts', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser, isVerified: true });
+      mockRedisService.getFailedAttempts.mockResolvedValue(5);
+
+      await expect(
+        service.resetPassword({
+          emailOrMobile: 'bf@alumni.edu',
+          otp: '000000',
+          newPassword: 'NewPass@123',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockOtpService.verifyOtp).not.toHaveBeenCalled();
+    });
+
+    it('should protect resetPassword: increment counter on wrong OTP', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser, isVerified: true });
+      mockOtpService.verifyOtp.mockResolvedValue(false);
+      mockRedisService.getFailedAttempts.mockResolvedValue(2);
+
+      await expect(
+        service.resetPassword({
+          emailOrMobile: 'bf@alumni.edu',
+          otp: '000000',
+          newPassword: 'NewPass@123',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockRedisService.incrementFailedAttempts).toHaveBeenCalledWith(
+        'otp_attempts:user-bf',
+        600,
+      );
+    });
+
+    it('should use independent counters for different users', async () => {
+      const userA = { id: 'user-a', email: 'a@alumni.edu', isVerified: false, role: Role.STUDENT };
+      const userB = { id: 'user-b', email: 'b@alumni.edu', isVerified: false, role: Role.STUDENT };
+
+      // User A is blocked
+      mockPrisma.user.findFirst
+        .mockResolvedValueOnce(userA)
+        .mockResolvedValueOnce(userB);
+      mockRedisService.getFailedAttempts
+        .mockResolvedValueOnce(5)  // user-a: blocked
+        .mockResolvedValueOnce(0); // user-b: clear
+      mockOtpService.verifyOtp.mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({ ...userB, isVerified: true });
+      mockPrisma.otpVerification.deleteMany.mockResolvedValue({ count: 1 });
+
+      // User A should be blocked
+      await expect(
+        service.verifyOtp({ emailOrMobile: 'a@alumni.edu', otp: '123456' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      // User B should succeed
+      const res = await service.verifyOtp({ emailOrMobile: 'b@alumni.edu', otp: '123456' });
+      expect(res.user.isVerified).toBe(true);
     });
   });
 });

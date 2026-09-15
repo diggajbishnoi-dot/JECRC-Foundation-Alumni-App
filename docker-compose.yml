@@ -12,8 +12,8 @@ services:
       - PORT=3000
       - DATABASE_URL=postgresql://alumni_user:alumni_secure_password@postgres:5432/alumni_db?schema=public
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=alumni_super_secret_jwt_access_key_2026_x99
-      - JWT_REFRESH_SECRET=alumni_super_secret_jwt_refresh_key_2026_z88
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
     depends_on:
       postgres:
         condition: service_healthy

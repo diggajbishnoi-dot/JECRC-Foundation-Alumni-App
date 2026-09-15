@@ -157,4 +157,33 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.set(key, (count + 1).toString(), windowSeconds);
     return true;
   }
+
+  /**
+   * Increment a failed-attempt counter for a given key.
+   * Only called when an OTP verification attempt fails.
+   * Returns the new count after incrementing.
+   * TTL is refreshed on every failed attempt (sliding window).
+   */
+  async incrementFailedAttempts(key: string, ttlSeconds: number): Promise<number> {
+    const current = await this.get(key);
+    const count = current ? parseInt(current, 10) : 0;
+    const newCount = count + 1;
+    await this.set(key, newCount.toString(), ttlSeconds);
+    return newCount;
+  }
+
+  /**
+   * Get current failed-attempt count for a key (0 if not set / expired).
+   */
+  async getFailedAttempts(key: string): Promise<number> {
+    const current = await this.get(key);
+    return current ? parseInt(current, 10) : 0;
+  }
+
+  /**
+   * Clear the failed-attempt counter after a successful OTP verification.
+   */
+  async resetFailedAttempts(key: string): Promise<void> {
+    await this.del(key);
+  }
 }

@@ -54,9 +54,11 @@ export class OtpService {
       await this.sendSmsOtp(destination, rawOtp);
     }
 
-    const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
-    // Provide preview OTP in dev, or if Resend failed/has domain restriction, or if explicitly allowed
-    const shouldProvidePreview = isDev || !emailResult.success || this.configService.get<string>('ALLOW_OTP_PREVIEW') === 'true';
+    // OTP preview is ONLY permitted in non-production environments when explicitly enabled.
+    // Production ALWAYS returns undefined — delivery failure does NOT expose the OTP.
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    const previewExplicitlyAllowed = this.configService.get<string>('ALLOW_OTP_PREVIEW') === 'true';
+    const shouldProvidePreview = !isProduction && previewExplicitlyAllowed;
 
     return {
       channel,
@@ -72,7 +74,7 @@ export class OtpService {
     const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
     const emailFrom = this.configService.get<string>('EMAIL_FROM', 'onboarding@resend.dev');
 
-    this.logger.log(`[EMAIL DISPATCH] Sending OTP [${otp}] to ${email}`);
+    this.logger.log(`[EMAIL DISPATCH] Sending verification code to ${email}`);
 
     if (resendApiKey) {
       try {
@@ -120,6 +122,6 @@ export class OtpService {
 
   private async sendSmsOtp(mobile: string, otp: string): Promise<void> {
     const provider = this.configService.get<string>('SMS_PROVIDER', 'TWILIO');
-    this.logger.log(`[SMS DISPATCH] Provider=${provider} Sending OTP [${otp}] to ${mobile}`);
+    this.logger.log(`[SMS DISPATCH] Provider=${provider} — sending verification code to ${mobile}`);
   }
 }

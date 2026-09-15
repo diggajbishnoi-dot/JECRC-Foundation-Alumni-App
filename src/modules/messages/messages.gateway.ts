@@ -6,6 +6,7 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -19,13 +20,10 @@ interface AuthenticatedSocket extends Socket {
   userId?: string;
 }
 
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
-  namespace: '/chat',
-})
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+// CORS is intentionally omitted from the decorator — it is applied at
+// runtime in afterInit() using ConfigService so production cannot use '*'.
+@WebSocketGateway({ namespace: '/chat' })
+export class MessagesGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -38,6 +36,67 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
   ) {}
+
+  /**
+   * Apply environment-aware CORS policy to the Socket.io server.
+   * Called once after the gateway is fully initialised — before any client
+   * can connect — so the policy is guaranteed to be in place.
+   *
+   * CORS_ORIGIN env var controls allowed origins (same as HTTP CORS in main.ts):
+   *   - '*'  (or unset) → allow all origins in development
+   *   - 'https://alumni.jecrcfoundation.com' → single trusted origin
+   *   - 'https://a.com,https://b.com' → comma-separated list of trusted origins
+   */
+  afterInit(server: Server) {
+    const rawOrigin = this.configService.get<string>('CORS_ORIGIN', '*');
+    const isWildcard = rawOrigin.trim() === '*';
+
+    const allowedOrigins = isWildcard
+      ? null
+      : rawOrigin.split(',').map((o) => o.trim()).filter(Boolean);
+
+    server.engine.on('initial_headers', (_headers: Record<string, string>, req: any) => {
+      const requestOrigin: string | undefined = req.headers?.origin;
+
+      if (!requestOrigin) return; // non-browser client (native app, server-to-server)
+
+      if (isWildcard) {
+        // Dev / explicitly open: allow everything
+        req.corsOriginAllowed = true;
+        return;
+      }
+
+      // Production: only allow explicitly configured origins
+      req.corsOriginAllowed = allowedOrigins!.includes(requestOrigin);
+    });
+
+    // Reconfigure the Socket.io server's CORS using the standard engine option.
+    // socket.io reads `server.engine.opts.cors` for each handshake.
+    (server.engine as any).opts.cors = {
+      origin: isWildcard
+        ? true
+        : (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+            if (!origin) {
+              // Non-browser (mobile app, Postman) — allow
+              callback(null, true);
+              return;
+            }
+            if (allowedOrigins!.includes(origin)) {
+              callback(null, true);
+            } else {
+              this.logger.warn(`WebSocket CORS blocked: origin=${origin}`);
+              callback(new Error(`Origin '${origin}' is not allowed by WebSocket CORS policy`));
+            }
+          },
+      credentials: true,
+    };
+
+    this.logger.log(
+      isWildcard
+        ? 'WebSocket CORS: all origins allowed (development mode)'
+        : `WebSocket CORS: restricted to [${allowedOrigins!.join(', ')}]`,
+    );
+  }
 
   /**
    * Handle Socket Handshake with JWT Authentication
@@ -53,10 +112,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
 
       const token = authHeader.replace(/^Bearer\s+/i, '');
-      const secret = this.configService.get<string>(
-        'JWT_SECRET',
-        'alumni_super_secret_jwt_access_key_2026_x99',
-      );
+      const secret = this.configService.getOrThrow<string>('JWT_SECRET');
       const payload = this.jwtService.verify(token, { secret });
 
       client.userId = payload.sub;

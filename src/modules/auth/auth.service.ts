@@ -154,6 +154,17 @@ export class AuthService {
       throw new NotFoundException('No account found with this contact');
     }
 
+    // Brute-force protection: block after 5 failed attempts within the OTP window
+    const bruteKey = `otp_attempts:${user.id}`;
+    const OTP_MAX_ATTEMPTS = 5;
+    const OTP_WINDOW_SECONDS = 600; // matches 10-minute OTP expiry
+    const failedAttempts = await this.redisService.getFailedAttempts(bruteKey);
+    if (failedAttempts >= OTP_MAX_ATTEMPTS) {
+      throw new ForbiddenException(
+        'Too many incorrect OTP attempts. Please request a new OTP and try again.',
+      );
+    }
+
     const latestOtp = await this.prisma.otpVerification.findFirst({
       where: {
         userId: user.id,
@@ -168,8 +179,12 @@ export class AuthService {
 
     const isValid = await this.otpService.verifyOtp(dto.otp, latestOtp.otpCodeHash);
     if (!isValid) {
+      await this.redisService.incrementFailedAttempts(bruteKey, OTP_WINDOW_SECONDS);
       throw new BadRequestException('Invalid OTP entered');
     }
+
+    // Correct OTP — clear attempt counter before proceeding
+    await this.redisService.resetFailedAttempts(bruteKey);
 
     // Mark user verified and remove OTP record
     const [updatedUser] = await this.runTxArray([
@@ -278,10 +293,7 @@ export class AuthService {
    * Refresh Access Token with token rotation
    */
   async refreshTokens(dto: RefreshTokenDto) {
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'alumni_super_secret_jwt_refresh_key_2026_z88',
-    );
+    const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
 
     let payload: any;
     try {
@@ -347,6 +359,17 @@ export class AuthService {
       throw new NotFoundException('Account not found');
     }
 
+    // Brute-force protection: block after 5 failed attempts within the OTP window
+    const bruteKey = `otp_attempts:${user.id}`;
+    const OTP_MAX_ATTEMPTS = 5;
+    const OTP_WINDOW_SECONDS = 600;
+    const failedAttempts = await this.redisService.getFailedAttempts(bruteKey);
+    if (failedAttempts >= OTP_MAX_ATTEMPTS) {
+      throw new ForbiddenException(
+        'Too many incorrect OTP attempts. Please request a new reset code and try again.',
+      );
+    }
+
     const latestOtp = await this.prisma.otpVerification.findFirst({
       where: {
         userId: user.id,
@@ -361,8 +384,12 @@ export class AuthService {
 
     const isValid = await this.otpService.verifyOtp(dto.otp, latestOtp.otpCodeHash);
     if (!isValid) {
+      await this.redisService.incrementFailedAttempts(bruteKey, OTP_WINDOW_SECONDS);
       throw new BadRequestException('Invalid OTP code');
     }
+
+    // Correct OTP — clear attempt counter
+    await this.redisService.resetFailedAttempts(bruteKey);
 
     const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
 
@@ -478,6 +505,17 @@ export class AuthService {
       throw new NotFoundException('User record not found');
     }
 
+    // Brute-force protection: block after 5 failed attempts within the OTP window
+    const bruteKey = `otp_attempts:${user.id}`;
+    const OTP_MAX_ATTEMPTS = 5;
+    const OTP_WINDOW_SECONDS = 600;
+    const failedAttempts = await this.redisService.getFailedAttempts(bruteKey);
+    if (failedAttempts >= OTP_MAX_ATTEMPTS) {
+      throw new ForbiddenException(
+        'Too many incorrect OTP attempts. Please request a new activation code and try again.',
+      );
+    }
+
     const latestOtp = await this.prisma.otpVerification.findFirst({
       where: {
         userId: user.id,
@@ -492,8 +530,12 @@ export class AuthService {
 
     const isValid = await this.otpService.verifyOtp(dto.otp, latestOtp.otpCodeHash);
     if (!isValid) {
+      await this.redisService.incrementFailedAttempts(bruteKey, OTP_WINDOW_SECONDS);
       throw new BadRequestException('Invalid activation OTP code');
     }
+
+    // Correct OTP — clear attempt counter
+    await this.redisService.resetFailedAttempts(bruteKey);
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
 
@@ -548,14 +590,8 @@ export class AuthService {
   }
 
   private async generateTokens(user: User) {
-    const accessSecret = this.configService.get<string>(
-      'JWT_SECRET',
-      'alumni_super_secret_jwt_access_key_2026_x99',
-    );
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'alumni_super_secret_jwt_refresh_key_2026_z88',
-    );
+    const accessSecret = this.configService.getOrThrow<string>('JWT_SECRET');
+    const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
 
     const payload = {
       sub: user.id,
