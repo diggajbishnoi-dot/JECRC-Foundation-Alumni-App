@@ -64,18 +64,21 @@ function getSubtleCrypto(): SubtleCrypto {
   }
   // Node.js environment
   const nodeCrypto = require('crypto');
-  return nodeCrypto.webcrypto.subtle;
+  return nodeCrypto.webcrypto.subtle as SubtleCrypto;
 }
 
 function getRandomValues(array: Uint8Array): Uint8Array {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-    return window.crypto.getRandomValues(array);
+    (window.crypto as any).getRandomValues(array);
+    return array;
   }
   if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
-    return globalThis.crypto.getRandomValues(array);
+    (globalThis.crypto as any).getRandomValues(array);
+    return array;
   }
   const nodeCrypto = require('crypto');
-  return nodeCrypto.randomFillSync(array);
+  nodeCrypto.randomFillSync(array);
+  return array;
 }
 
 export interface E2EKeyPair {
