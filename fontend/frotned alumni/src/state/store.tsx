@@ -465,21 +465,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const uRole = (u.role?.toLowerCase() as Role) || "alumni";
           const uBranch = u.alumniDetails?.branch || u.studentDetails?.branch || "CSE";
           const uBatch = u.alumniDetails?.batch || (u.studentDetails?.expectedPassoutYear ? String(u.studentDetails.expectedPassoutYear) : (uRole === "alumni" ? "2020" : "2027"));
-          const uHeadline = u.alumniDetails?.designation
+
+          let savedLocal: Partial<Person> = {};
+          try {
+            const rawCache = localStorage.getItem(`user_me_profile_${u.id}`) || localStorage.getItem("user_me_profile_latest");
+            if (rawCache) savedLocal = JSON.parse(rawCache);
+          } catch (e) {}
+
+          const backendHeadline = u.alumniDetails?.designation
             ? `${u.alumniDetails.designation}${u.alumniDetails.currentCompany ? ` @ ${u.alumniDetails.currentCompany}` : ""}`
             : (uRole === "alumni" ? `Alumni · Batch ${uBatch}` : `Student · Class of ${uBatch}`);
+
           setRole(uRole);
           const mappedMe: Person = {
             id: u.id,
-            name: u.name,
+            name: capitalizeName(savedLocal.name || u.name),
             role: uRole,
-            branch: uBranch,
-            batch: uBatch,
-            company: u.alumniDetails?.currentCompany || "",
-            city: u.city || "Jaipur",
-            about: u.bio || "JECRC Alumni Network Member",
+            branch: savedLocal.branch || uBranch,
+            batch: savedLocal.batch || uBatch,
+            company: savedLocal.company !== undefined ? savedLocal.company : (u.alumniDetails?.currentCompany || ""),
+            city: savedLocal.city || u.city || "Jaipur",
+            about: savedLocal.about || u.bio || "JECRC Alumni Network Member",
             color: uRole === "alumni" ? "#0F2A5E" : "#2563EB",
-            headline: uHeadline,
+            headline: savedLocal.headline || backendHeadline,
           };
           setMe(mappedMe);
           registerDynamicUser(mappedMe);
@@ -1284,7 +1292,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setMe((prev) => {
         const updated = {
           ...prev,
-          ...(data.name && { name: data.name }),
+          ...(data.name && { name: capitalizeName(data.name) }),
           ...(data.headline && { headline: data.headline }),
           ...(data.branch && { branch: data.branch }),
           ...(data.batch && { batch: data.batch }),
@@ -1293,6 +1301,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ...(data.about !== undefined && { about: data.about }),
         };
         registerDynamicUser(updated);
+        try {
+          if (updated.id) {
+            localStorage.setItem(`user_me_profile_${updated.id}`, JSON.stringify(updated));
+            localStorage.setItem("user_me_profile_latest", JSON.stringify(updated));
+          }
+        } catch (e) {}
         return updated;
       });
 
