@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { ApplyJobDto } from './dto/applications.dto';
 import { CreatePostDto, QueryPostsDto } from './dto/posts.dto';
 import { PostsService } from './posts.service';
 
@@ -58,5 +59,46 @@ export class PostsController {
   @ApiOperation({ summary: 'Flag or report an inappropriate post' })
   async reportPost(@Param('id') id: string) {
     return await this.postsService.reportPost(id);
+  }
+
+  @Post(':id/apply')
+  @ApiOperation({ summary: 'Submit job application for a post with resume' })
+  @ApiResponse({ status: 201, description: 'Application submitted successfully' })
+  async applyToPost(
+    @Param('id') postId: string,
+    @CurrentUser('id') studentId: string,
+    @Body() dto: ApplyJobDto,
+  ) {
+    return await this.postsService.applyToPost(postId, studentId, dto);
+  }
+
+  @Get(':id/applications')
+  @ApiOperation({ summary: 'Get all applicants for a post (Post owner Alumni or Admin only)' })
+  async getPostApplications(
+    @Param('id') postId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: Role,
+  ) {
+    return await this.postsService.getPostApplications(postId, userId, role);
+  }
+
+  @Get(':id/applications/:appId')
+  @ApiOperation({ summary: 'Get single applicant details (Post owner, applicant student, or Admin only)' })
+  async getSingleApplication(
+    @Param('id') postId: string,
+    @Param('appId') appId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: Role,
+  ) {
+    return await this.postsService.getSingleApplication(postId, appId, userId, role);
+  }
+
+  @Get(':id/my-application')
+  @ApiOperation({ summary: 'Check current student application status for a post' })
+  async getMyApplication(
+    @Param('id') postId: string,
+    @CurrentUser('id') studentId: string,
+  ) {
+    return await this.postsService.getMyApplication(postId, studentId);
   }
 }

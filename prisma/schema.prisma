@@ -96,6 +96,7 @@ model User {
   createdGroups         Group[]               @relation("CreatedGroups")
   groupMemberships      GroupMembership[]
   notifications         Notification[]
+  jobApplications       JobApplication[]      @relation("StudentApplications")
 
   @@map("users")
 }
@@ -201,6 +202,8 @@ model Post {
   reportCount   Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  jobApplications JobApplication[]
 
   @@index([type])
   @@index([createdAt])
@@ -333,3 +336,32 @@ model Notification {
   @@index([userId, isRead])
   @@map("notifications")
 }
+
+model JobApplication {
+  id                 String   @id @default(uuid())
+  postId             String
+  post               Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            User     @relation("StudentApplications", fields: [studentId], references: [id], onDelete: Cascade)
+  fullName           String
+  email              String
+  phone              String?
+  college            String   @default("JECRC Foundation")
+  course             String?
+  branch             String?
+  graduationYear     Int?
+  skills             String[] @default([])
+  experience         String?
+  coverLetter        String?
+  resumeUrl          String?
+  resumeOriginalName String?
+  status             String   @default("APPLIED")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([postId, studentId])
+  @@index([postId])
+  @@index([studentId])
+  @@map("job_applications")
+}
+

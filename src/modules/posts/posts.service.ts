@@ -1,15 +1,22 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageService } from '../../services/storage/storage.service';
+import { ApplyJobDto } from './dto/applications.dto';
 import { CreatePostDto, QueryPostsDto } from './dto/posts.dto';
 
 @Injectable()
 export class PostsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   /**
    * Create a post (General, Job opening, or Internship)
@@ -42,7 +49,7 @@ export class PostsService {
   }
 
   /**
-   * Get paginated post feed
+   * Get paginated post feed with application count
    */
   async getPostsFeed(query: QueryPostsDto) {
     const where: Prisma.PostWhereInput = {};
@@ -72,13 +79,25 @@ export class PostsService {
               studentDetails: true,
             },
           },
+          jobApplications: {
+            select: { id: true },
+          },
         },
       }),
       this.prisma.post.count({ where }),
     ]);
 
+    const formattedPosts = posts.map((p) => {
+      const applicantCount = p.jobApplications ? p.jobApplications.length : 0;
+      const { jobApplications, ...rest } = p as any;
+      return {
+        ...rest,
+        applicantCount,
+      };
+    });
+
     return {
-      items: posts,
+      items: formattedPosts,
       meta: {
         total,
         page: query.page || 1,
@@ -89,7 +108,7 @@ export class PostsService {
   }
 
   /**
-   * Get a single post by ID
+   * Get a single post by ID with application count
    */
   async getPostById(id: string) {
     const post = await this.prisma.post.findUnique({
@@ -105,6 +124,9 @@ export class PostsService {
             studentDetails: true,
           },
         },
+        jobApplications: {
+          select: { id: true },
+        },
       },
     });
 
@@ -112,7 +134,13 @@ export class PostsService {
       throw new NotFoundException('Post not found');
     }
 
-    return post;
+    const applicantCount = (post as any).jobApplications ? (post as any).jobApplications.length : 0;
+    const { jobApplications, ...rest } = post as any;
+
+    return {
+      ...rest,
+      applicantCount,
+    };
   }
 
   /**
@@ -160,4 +188,189 @@ export class PostsService {
       reportCount: updated.reportCount,
     };
   }
+
+  /**
+   * Student applies for a Job/Internship post
+   */
+  async applyToPost(postId: string, studentId: string, dto: ApplyJobDto) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Opportunity post not found');
+    }
+
+    // Check duplicate application
+    const existing = await this.prisma.jobApplication.findFirst({
+      where: { postId, studentId },
+    });
+
+    if (existing) {
+      throw new ConflictException('You have already applied to this opportunity');
+    }
+
+    // Process resume upload if provided
+    let resumeUrl: string | null = null;
+    let resumeOriginalName: string | null = dto.resumeFileName || null;
+
+    if (dto.resumeData) {
+      resumeUrl = await this.storageService.uploadBase64Document(
+        dto.resumeData,
+        'resumes',
+        dto.resumeFileName || `resume_${studentId.slice(0, 8)}.pdf`,
+      );
+      if (!resumeOriginalName) {
+        resumeOriginalName = dto.resumeFileName || 'resume.pdf';
+      }
+    }
+
+    const application = await this.prisma.jobApplication.create({
+      data: {
+        postId,
+        studentId,
+        fullName: dto.fullName,
+        email: dto.email,
+        phone: dto.phone || null,
+        college: dto.college || 'JECRC Foundation',
+        course: dto.course || null,
+        branch: dto.branch || null,
+        graduationYear: dto.graduationYear || null,
+        skills: dto.skills || [],
+        experience: dto.experience || null,
+        coverLetter: dto.coverLetter || null,
+        resumeUrl,
+        resumeOriginalName,
+      },
+    });
+
+    // Notify post owner (Alumni creator)
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId: post.userId,
+          type: 'JOB_APPLICATION_RECEIVED',
+          payload: {
+            postId: post.id,
+            postTitle: post.title,
+            studentId,
+            applicantName: dto.fullName,
+            applicationId: application.id,
+          },
+        },
+      });
+    } catch (_err) {
+      // Notification creation error is non-fatal for application submission
+    }
+
+    return {
+      message: 'Application submitted successfully',
+      application,
+    };
+  }
+
+  /**
+   * Get all applicants for a Job/Internship post
+   * STRICT AUTHORIZATION: ONLY the Alumni creator (post.userId) or ADMIN can access.
+   */
+  async getPostApplications(postId: string, requestingUserId: string, requestingRole: Role) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Opportunity post not found');
+    }
+
+    // STRICT IDOR SECURITY CHECK: Only post creator or Admin allowed!
+    if (post.userId !== requestingUserId && requestingRole !== Role.ADMIN) {
+      throw new ForbiddenException('Access denied: You are not authorized to view applications for this post');
+    }
+
+    const applications = await this.prisma.jobApplication.findMany({
+      where: { postId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            profilePicUrl: true,
+            studentDetails: true,
+          },
+        },
+      },
+    });
+
+    return {
+      postId,
+      postTitle: post.title,
+      totalApplicants: applications.length,
+      applications,
+    };
+  }
+
+  /**
+   * Get a single application detail by ID
+   * STRICT AUTHORIZATION: Post owner, the applicant student, or Admin allowed.
+   */
+  async getSingleApplication(
+    postId: string,
+    appId: string,
+    requestingUserId: string,
+    requestingRole: Role,
+  ) {
+    const application = await this.prisma.jobApplication.findUnique({
+      where: { id: appId },
+      include: {
+        post: {
+          select: {
+            id: true,
+            title: true,
+            userId: true,
+          },
+        },
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            profilePicUrl: true,
+            studentDetails: true,
+          },
+        },
+      },
+    });
+
+    if (!application || application.postId !== postId) {
+      throw new NotFoundException('Application not found');
+    }
+
+    // STRICT IDOR SECURITY CHECK
+    const isPostOwner = application.post.userId === requestingUserId;
+    const isApplicant = application.studentId === requestingUserId;
+    const isAdmin = requestingRole === Role.ADMIN;
+
+    if (!isPostOwner && !isApplicant && !isAdmin) {
+      throw new ForbiddenException('Access denied: You do not have authorization to view this application');
+    }
+
+    return application;
+  }
+
+  /**
+   * Get student's own application status for a specific post
+   */
+  async getMyApplication(postId: string, studentId: string) {
+    const application = await this.prisma.jobApplication.findFirst({
+      where: { postId, studentId },
+    });
+
+    return {
+      applied: !!application,
+      application: application || null,
+    };
+  }
 }
+

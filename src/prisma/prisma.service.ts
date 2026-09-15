@@ -111,6 +111,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       sender: { collection: 'users', foreignKey: 'senderId', single: true },
       receiver: { collection: 'users', foreignKey: 'receiverId', single: true },
     });
+    (this as any).jobApplication = db.makeDelegate('jobApplications', {
+      post: { collection: 'posts', foreignKey: 'postId', single: true },
+      student: { collection: 'users', foreignKey: 'studentId', single: true },
+    });
 
     (this as any).$transaction = async (arg: any) => {
       if (typeof arg === 'function') {

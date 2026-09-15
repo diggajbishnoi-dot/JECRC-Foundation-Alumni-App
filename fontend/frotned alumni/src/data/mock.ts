@@ -21,8 +21,17 @@ export interface JobApplicant {
   studentId: string;
   name: string;
   email?: string;
+  phone?: string;
+  college?: string;
+  course?: string;
   branch: string;
   batch: string;
+  graduationYear?: number;
+  skills?: string[];
+  experience?: string;
+  coverLetter?: string;
+  resumeUrl?: string;
+  resumeOriginalName?: string;
   appliedAt: string;
   note?: string;
 }

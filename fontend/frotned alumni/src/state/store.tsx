@@ -85,7 +85,27 @@ interface Store {
   // jobs
   allJobs: Job[];
   addJob: (j: Job) => void;
-  applyJob: (jobId: string, note?: string) => Promise<void>;
+  applyJob: (
+    jobId: string,
+    details?:
+      | string
+      | {
+          fullName?: string;
+          email?: string;
+          phone?: string;
+          college?: string;
+          course?: string;
+          branch?: string;
+          graduationYear?: number;
+          skills?: string[];
+          experience?: string;
+          coverLetter?: string;
+          resumeData?: string;
+          resumeFileName?: string;
+          note?: string;
+        }
+  ) => Promise<void>;
+  fetchApplicationsForJob: (jobId: string) => Promise<void>;
   appliedJobIds: Set<string>;
   // discussions
   allThreads: Thread[];
@@ -1232,18 +1252,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
 
   const applyJob = useCallback(
-    async (jobId: string, note?: string) => {
+    async (
+      jobId: string,
+      details?:
+        | string
+        | {
+            fullName?: string;
+            email?: string;
+            phone?: string;
+            college?: string;
+            course?: string;
+            branch?: string;
+            graduationYear?: number;
+            skills?: string[];
+            experience?: string;
+            coverLetter?: string;
+            resumeData?: string;
+            resumeFileName?: string;
+            note?: string;
+          }
+    ) => {
       setAppliedJobIds((s) => new Set(s).add(jobId));
+
+      const dObj = typeof details === "object" ? details : { note: details };
+      const fullName = dObj?.fullName || me.name || "JECRC Student";
+      const email = dObj?.email || me.email || "";
+      const branch = dObj?.branch || me.branch || "CSE";
+      const batch = me.batch || "2027";
+      const gradYear = dObj?.graduationYear || parseInt(batch) || 2027;
 
       const applicant: JobApplicant = {
         id: `app_${Date.now()}`,
         studentId: me.id,
-        name: me.name || "JECRC Student",
-        email: me.email,
-        branch: me.branch || "CSE",
-        batch: me.batch || "2025",
+        name: fullName,
+        email,
+        phone: dObj?.phone,
+        college: dObj?.college || "JECRC Foundation",
+        course: dObj?.course || "B.Tech",
+        branch,
+        batch,
+        graduationYear: gradYear,
+        skills: dObj?.skills || [],
+        experience: dObj?.experience,
+        coverLetter: dObj?.coverLetter || dObj?.note,
+        resumeUrl: dObj?.resumeData,
+        resumeOriginalName: dObj?.resumeFileName || (dObj?.resumeData ? "resume.pdf" : undefined),
         appliedAt: "Just now",
-        note,
+        note: dObj?.note || dObj?.coverLetter,
       };
 
       setAllJobs((jobs) =>
@@ -1261,9 +1316,84 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       );
 
       toast("Application submitted! Details sent to the alumni.");
+
+      try {
+        const res = await api.applyJob(jobId, {
+          fullName,
+          email,
+          phone: dObj?.phone,
+          college: dObj?.college || "JECRC Foundation",
+          course: dObj?.course || "B.Tech",
+          branch,
+          graduationYear: gradYear,
+          skills: dObj?.skills,
+          experience: dObj?.experience,
+          coverLetter: dObj?.coverLetter || dObj?.note,
+          resumeData: dObj?.resumeData,
+          resumeFileName: dObj?.resumeFileName,
+        });
+
+        if (res.success && res.data?.application) {
+          const apiApp = res.data.application;
+          setAllJobs((jobs) =>
+            jobs.map((j) => {
+              if (j.id === jobId) {
+                const currentList = j.applicantList || [];
+                const updatedList = currentList.map((a) =>
+                  a.studentId === me.id ? { ...a, id: apiApp.id, resumeUrl: apiApp.resumeUrl || a.resumeUrl } : a
+                );
+                return { ...j, applicantList: updatedList };
+              }
+              return j;
+            })
+          );
+        } else if (res.error) {
+          toast(res.error);
+        }
+      } catch (_e) {}
     },
     [me, toast]
   );
+
+  const fetchApplicationsForJob = useCallback(async (jobId: string) => {
+    try {
+      const res = await api.getJobApplications(jobId);
+      if (res.success && res.data?.applications) {
+        const mappedList: JobApplicant[] = res.data.applications.map((app: any) => ({
+          id: app.id,
+          studentId: app.studentId,
+          name: app.fullName || app.student?.name || "Student Applicant",
+          email: app.email || app.student?.email,
+          phone: app.phone,
+          college: app.college || "JECRC Foundation",
+          course: app.course || "B.Tech",
+          branch: app.branch || app.student?.studentDetails?.branch || "Engineering",
+          batch: app.graduationYear ? String(app.graduationYear) : "2027",
+          graduationYear: app.graduationYear,
+          skills: app.skills || [],
+          experience: app.experience,
+          coverLetter: app.coverLetter,
+          resumeUrl: app.resumeUrl,
+          resumeOriginalName: app.resumeOriginalName,
+          appliedAt: new Date(app.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          note: app.coverLetter || app.experience,
+        }));
+
+        setAllJobs((jobs) =>
+          jobs.map((j) => {
+            if (j.id === jobId) {
+              return {
+                ...j,
+                applicants: res.data.totalApplicants,
+                applicantList: mappedList,
+              };
+            }
+            return j;
+          })
+        );
+      }
+    } catch (_err) {}
+  }, []);
 
   const markNotif = useCallback((id: string) => {
     saveReadNotifId(id);
@@ -1382,7 +1512,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
       chats, activeChat, setActiveChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence, typing, unlockChat,
-      allJobs, addJob, applyJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
+      allJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
       logout,
@@ -1393,7 +1523,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack,
       toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent,
       chats, activeChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence,
-      typing, unlockChat, allJobs, addJob, applyJob, appliedJobIds, allThreads, upvoted,
+      typing, unlockChat, allJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted,
       toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin,
       mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs,
       unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile,

@@ -323,6 +323,43 @@ class ApiService {
     });
   }
 
+  async applyJob(postId: string, data: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    college?: string;
+    course?: string;
+    branch?: string;
+    graduationYear?: number;
+    skills?: string[];
+    experience?: string;
+    coverLetter?: string;
+    resumeData?: string;
+    resumeFileName?: string;
+  }) {
+    return await this.request(`/posts/${postId}/apply`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getJobApplications(postId: string) {
+    return await this.request<{
+      postId: string;
+      postTitle: string;
+      totalApplicants: number;
+      applications: any[];
+    }>(`/posts/${postId}/applications`);
+  }
+
+  async getJobApplicationDetail(postId: string, appId: string) {
+    return await this.request(`/posts/${postId}/applications/${appId}`);
+  }
+
+  async getMyJobApplication(postId: string) {
+    return await this.request<{ applied: boolean; application: any }>(`/posts/${postId}/my-application`);
+  }
+
   // Discussions
   async getDiscussions() {
     return await this.request('/discussions');

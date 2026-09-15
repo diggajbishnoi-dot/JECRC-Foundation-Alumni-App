@@ -20,6 +20,7 @@ export class InMemoryDb {
   notifications: any[] = [];
   otpVerifications: any[] = [];
   deviceTokens: any[] = [];
+  jobApplications: any[] = [];
 
   constructor() {
     this.seed();

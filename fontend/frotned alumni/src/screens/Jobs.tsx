@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Clock, Users, CalendarDays, BadgeCheck, MessageCircle, ListFilter, Plus, X } from "lucide-react";
+import { MapPin, Clock, Users, CalendarDays, BadgeCheck, MessageCircle, ListFilter, Plus, X, FileText, Upload, Download, ChevronLeft, ChevronRight, Eye, Lock } from "lucide-react";
 import { useStore } from "../state/store";
 import { Job } from "../data/mock";
 import { Btn, EmptyState, Field, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Tag } from "../components/ui";
@@ -259,11 +259,35 @@ export function JobsScreen() {
 
 /* ============== JOB DETAIL ============== */
 export function JobDetailScreen({ id }: { id: string }) {
-  const { allJobs, pop, role, me, applyJob, appliedJobIds, push } = useStore();
+  const { allJobs, pop, role, me, applyJob, fetchApplicationsForJob, appliedJobIds, push, toast } = useStore();
   const j = allJobs.find((x) => x.id === id);
+
+  // Student apply state
   const [applySheetOpen, setApplySheetOpen] = useState(false);
-  const [note, setNote] = useState("");
+  const [form, setForm] = useState({
+    fullName: me.name || "",
+    email: me.email || "",
+    phone: "",
+    college: "JECRC Foundation",
+    course: "B.Tech",
+    branch: me.branch || "Computer Science",
+    graduationYear: me.batch ? parseInt(me.batch) || 2027 : 2027,
+    skills: me.branch === "CSE" ? "React, Node.js, TypeScript" : "Python, Problem Solving",
+    experience: "",
+    coverLetter: "",
+  });
+  const [resumeFile, setResumeFile] = useState<{ dataUrl: string; name: string; size: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Alumni applicants view state
+  const [applicantsDrawerOpen, setApplicantsDrawerOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (j?.id) {
+      fetchApplicationsForJob(j.id);
+    }
+  }, [j?.id, fetchApplicationsForJob]);
 
   if (!j) return null;
 
@@ -271,17 +295,63 @@ export function JobDetailScreen({ id }: { id: string }) {
   const isApplied = appliedJobIds.has(j.id);
   const applicantList = j.applicantList || [];
 
+  const handleResumeSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast("File size exceeds 5MB limit. Please upload a smaller PDF/DOC.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      setResumeFile({
+        dataUrl,
+        name: file.name,
+        size: `${sizeMb} MB`,
+      });
+      toast(`Resume "${file.name}" attached successfully`);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleApply = async () => {
+    if (!form.fullName.trim() || !form.email.trim()) {
+      toast("Please provide your name and email address.");
+      return;
+    }
     setSubmitting(true);
-    await applyJob(j.id, note.trim() || undefined);
+
+    const skillsArr = form.skills.split(",").map((s) => s.trim()).filter(Boolean);
+
+    await applyJob(j.id, {
+      fullName: form.fullName.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim() || undefined,
+      college: form.college.trim() || "JECRC Foundation",
+      course: form.course.trim() || "B.Tech",
+      branch: form.branch.trim() || "CSE",
+      graduationYear: Number(form.graduationYear) || 2027,
+      skills: skillsArr,
+      experience: form.experience.trim() || undefined,
+      coverLetter: form.coverLetter.trim() || undefined,
+      resumeData: resumeFile?.dataUrl,
+      resumeFileName: resumeFile?.name,
+      note: form.coverLetter.trim() || form.experience.trim() || undefined,
+    });
+
     setSubmitting(false);
     setApplySheetOpen(false);
-    setNote("");
   };
+
+  const selectedApplicant = selectedIndex !== null ? applicantList[selectedIndex] : null;
 
   return (
     <div className="flex h-full flex-col bg-page">
-      <ScreenHeader title="Opportunity" onBack={pop} />
+      <ScreenHeader title="Opportunity Detail" onBack={pop} />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 sm:px-5 pb-8 pt-2 space-y-4">
         {/* Main Job Overview Card */}
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card p-5 border border-line shadow-sm">
@@ -299,7 +369,7 @@ export function JobDetailScreen({ id }: { id: string }) {
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2.5">
             {[
-              { icon: Users, l: "Applicants", v: `${j.applicants || 0}` },
+              { icon: Users, l: "Applicants", v: `${j.applicants || applicantList.length || 0}` },
               { icon: CalendarDays, l: "Deadline", v: j.deadline.split(" ").slice(0, 2).join(" ") },
               { icon: Clock, l: "Posted", v: `${j.postedAgo}` },
             ].map((m) => (
@@ -326,79 +396,40 @@ export function JobDetailScreen({ id }: { id: string }) {
           </div>
         </motion.div>
 
-        {/* PRIVATE APPLICANT SECTION FOR JOB POSTER ONLY */}
+        {/* ALUMNI APPLICANTS CARD & VIEW APPLICANTS ACTION */}
         {isPoster && (
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="card p-5 border border-line shadow-sm">
             <div className="flex items-center justify-between pb-3 border-b border-line">
               <div className="flex items-center gap-2">
                 <Users size={18} className="text-navy" />
-                <h3 className="font-display text-[16px] font-bold text-ink">Student Submissions</h3>
+                <h3 className="font-display text-[16px] font-bold text-ink">Applicant Management</h3>
               </div>
-              <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-[11.5px] font-bold text-gold-700">
-                {applicantList.length} {applicantList.length === 1 ? "applicant" : "applicants"}
+              <span className="rounded-full bg-gold/20 px-3 py-1 text-[12px] font-bold text-gold-700 border border-gold/30">
+                {j.applicants || applicantList.length} {j.applicants === 1 || applicantList.length === 1 ? "Applicant" : "Applicants"}
               </span>
             </div>
 
-            <p className="mt-2 text-[11.5px] text-sub/80 italic">
-              🔒 Privacy Protected: Only you (the job poster) can view these applied student details.
+            <p className="mt-2 text-[11.5px] text-sub/80 italic flex items-center gap-1">
+              <Lock size={12} className="text-emerald-600" /> Private Section: Only you (the post creator) can access these applicants.
             </p>
 
-            <div className="mt-4 space-y-3">
-              {applicantList.length === 0 ? (
-                <div className="rounded-xl bg-page p-4 text-center border border-dashed border-line">
-                  <p className="text-[13px] font-semibold text-ink">No applicants yet</p>
-                  <p className="text-[11.5px] text-sub mt-0.5">When students apply, their contact details will appear here.</p>
-                </div>
-              ) : (
-                applicantList.map((app) => (
-                  <div key={app.id} className="rounded-xl bg-page p-3.5 border border-line space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <InitialsAvatar name={app.name} size={36} />
-                        <div>
-                          <p className="text-[13.5px] font-bold text-ink">{app.name}</p>
-                          <p className="text-[11.5px] text-sub">{app.branch} · Batch {app.batch}</p>
-                        </div>
-                      </div>
-                      <span className="text-[11px] text-sub/70">{app.appliedAt}</span>
-                    </div>
-
-                    {app.email && (
-                      <p className="text-[12px] text-sub/90">
-                        <span className="font-semibold text-ink">Email:</span> {app.email}
-                      </p>
-                    )}
-
-                    {app.note && (
-                      <div className="rounded-lg bg-white p-2 text-[12px] text-ink/80 border border-line/60">
-                        <span className="font-semibold text-sub">Note:</span> {app.note}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={() => push({ name: "chatRoom", id: `c_${app.studentId}` })}
-                        className="btn-press flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-navy py-2 text-[12px] font-bold text-white shadow-sm cursor-pointer"
-                      >
-                        <MessageCircle size={13} />
-                        <span>Message Student</span>
-                      </button>
-                      <button
-                        onClick={() => push({ name: "profile", id: app.studentId })}
-                        className="btn-press rounded-lg bg-white border border-line px-3 py-2 text-[12px] font-bold text-sub hover:text-navy cursor-pointer"
-                      >
-                        View Profile
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <button
+              onClick={() => {
+                setApplicantsDrawerOpen(true);
+                if (applicantList.length > 0 && selectedIndex === null) {
+                  setSelectedIndex(0);
+                }
+              }}
+              className="btn-press mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-navy py-3 px-4 text-[13.5px] font-bold text-white shadow-md cursor-pointer hover:bg-navy-600 transition-colors"
+            >
+              <Eye size={16} />
+              <span>View Applicants ({j.applicants || applicantList.length})</span>
+            </button>
           </motion.div>
         )}
       </div>
 
-      {/* Bottom Action Bar for Student Application */}
+      {/* Student Apply Bar */}
       {!isPoster && (
         <div className="border-t border-line bg-white px-5 pb-8 pt-3.5">
           <Btn
@@ -412,32 +443,96 @@ export function JobDetailScreen({ id }: { id: string }) {
         </div>
       )}
 
-      {/* Student Application Confirmation Sheet */}
+      {/* STUDENT APPLICATION FORM SHEET */}
       <Sheet open={applySheetOpen} onClose={() => setApplySheetOpen(false)} title="Apply for Opportunity">
-        <div className="space-y-4 p-5">
-          <div className="rounded-2xl bg-navy-50 p-4 border border-navy/10 space-y-1.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-navy">Applicant Details</p>
-            <p className="text-[14px] font-bold text-ink">{me.name}</p>
+        <div className="space-y-4 p-5 overflow-y-auto max-h-[80vh] no-scrollbar">
+          <div className="rounded-2xl bg-navy-50 p-4 border border-navy/10 space-y-1">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-navy">Applying As</p>
+            <p className="text-[14.5px] font-bold text-ink">{me.name}</p>
             <p className="text-[12.5px] text-sub">{me.branch} Department · Batch {me.batch}</p>
-            <p className="text-[12px] text-sub/80">{me.email}</p>
           </div>
 
+          <Field label="Full Name" value={form.fullName} onChange={(v) => setForm((f) => ({ ...f, fullName: v }))} placeholder="Rahul Sharma" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Email" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} placeholder="student@jecrc.ac.in" />
+            <Field label="Phone" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="+91 9876543210" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="College / University" value={form.college} onChange={(v) => setForm((f) => ({ ...f, college: v }))} placeholder="JECRC Foundation" />
+            <Field label="Course / Degree" value={form.course} onChange={(v) => setForm((f) => ({ ...f, course: v }))} placeholder="B.Tech" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Branch / Dept" value={form.branch} onChange={(v) => setForm((f) => ({ ...f, branch: v }))} placeholder="Computer Science" />
+            <div>
+              <label className="block text-[13px] font-bold text-ink mb-1">Graduation Year</label>
+              <input
+                type="number"
+                className="input"
+                value={form.graduationYear}
+                onChange={(e) => setForm((f) => ({ ...f, graduationYear: parseInt(e.target.value) || 2027 }))}
+              />
+            </div>
+          </div>
+
+          <Field label="Technical Skills" value={form.skills} onChange={(v) => setForm((f) => ({ ...f, skills: v }))} placeholder="React, Node.js, Python, SQL" />
+
           <div>
-            <label className="block text-[13px] font-bold text-ink mb-1.5">
-              Note or relevant experience (Optional)
-            </label>
+            <label className="block text-[13px] font-bold text-ink mb-1">Experience / Key Projects (Optional)</label>
             <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Introduce yourself or share relevant projects/skills for this role…"
-              rows={3}
-              className="input h-auto resize-none py-2.5 text-[13px] leading-relaxed"
+              value={form.experience}
+              onChange={(e) => setForm((f) => ({ ...f, experience: e.target.value }))}
+              placeholder="Describe your internships, projects, or relevant coursework…"
+              rows={2}
+              className="input h-auto resize-none py-2.5 text-[13px]"
             />
           </div>
 
-          <p className="text-[11.5px] text-sub leading-relaxed">
-            Your details will be forwarded directly and exclusively to <strong>{j.postedBy}</strong>.
-          </p>
+          <div>
+            <label className="block text-[13px] font-bold text-ink mb-1">Cover Letter / Note to Alumni (Optional)</label>
+            <textarea
+              value={form.coverLetter}
+              onChange={(e) => setForm((f) => ({ ...f, coverLetter: e.target.value }))}
+              placeholder="Introduce yourself and explain why you're a great fit for this role…"
+              rows={3}
+              className="input h-auto resize-none py-2.5 text-[13px]"
+            />
+          </div>
+
+          {/* Resume Upload Section */}
+          <div className="rounded-2xl border border-dashed border-line bg-page p-4">
+            <label className="block text-[13px] font-bold text-ink mb-1.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><FileText size={15} className="text-navy" /> Upload Resume / CV</span>
+              <span className="text-[11px] font-semibold text-sub">PDF, DOC, DOCX (Max 5MB)</span>
+            </label>
+
+            {resumeFile ? (
+              <div className="mt-2 flex items-center justify-between rounded-xl bg-white p-3 border border-emerald-300 shadow-sm">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <FileText size={20} className="text-emerald-600 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-bold text-ink">{resumeFile.name}</p>
+                    <p className="text-[11px] text-sub">{resumeFile.size} · Ready to submit</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setResumeFile(null)}
+                  className="rounded-full bg-rose/10 p-1.5 text-rose hover:bg-rose/20 cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl bg-white p-4 border border-line hover:border-navy transition-all text-center">
+                <Upload size={22} className="text-navy mb-1" />
+                <span className="text-[13px] font-bold text-navy">Click to upload your resume</span>
+                <span className="text-[11.5px] text-sub mt-0.5">Supports PDF and Word documents</span>
+                <input type="file" accept=".pdf,.doc,.docx,.png,.jpeg,.jpg" onChange={handleResumeSelect} className="hidden" />
+              </label>
+            )}
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button
@@ -452,9 +547,193 @@ export function JobDetailScreen({ id }: { id: string }) {
               onClick={handleApply}
               loading={submitting}
             >
-              Confirm &amp; Apply
+              Submit Application
             </Btn>
           </div>
+        </div>
+      </Sheet>
+
+      {/* ALUMNI APPLICANTS DRAWER & SEQUENTIAL DETAIL VIEWER */}
+      <Sheet open={applicantsDrawerOpen} onClose={() => setApplicantsDrawerOpen(false)} title={`Applicants — ${j.applicants || applicantList.length}`}>
+        <div className="space-y-4 p-5 max-h-[80vh] overflow-y-auto no-scrollbar">
+          {applicantList.length === 0 ? (
+            <div className="rounded-2xl bg-page p-6 text-center border border-dashed border-line">
+              <Users size={32} className="mx-auto text-sub/50 mb-2" />
+              <p className="text-[14px] font-bold text-ink">No applications yet</p>
+              <p className="text-[12px] text-sub mt-1">When students apply to this post, their application cards will appear here.</p>
+            </div>
+          ) : selectedApplicant ? (
+            /* INDIVIDUAL APPLICANT DETAIL VIEW WITH SEQUENTIAL NAVIGATION */
+            <div className="space-y-4">
+              {/* Top Navigation Bar: Previous / Next & Index */}
+              <div className="flex items-center justify-between rounded-xl bg-navy-50 p-2.5 border border-navy/10">
+                <button
+                  disabled={selectedIndex! <= 0}
+                  onClick={() => setSelectedIndex((i) => (i !== null && i > 0 ? i - 1 : i))}
+                  className="btn-press flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[12px] font-bold text-navy shadow-sm disabled:opacity-40 cursor-pointer"
+                >
+                  <ChevronLeft size={16} />
+                  <span>Previous</span>
+                </button>
+
+                <span className="text-[12.5px] font-bold text-navy">
+                  Applicant {selectedIndex! + 1} of {applicantList.length}
+                </span>
+
+                <button
+                  disabled={selectedIndex! >= applicantList.length - 1}
+                  onClick={() => setSelectedIndex((i) => (i !== null && i < applicantList.length - 1 ? i + 1 : i))}
+                  className="btn-press flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[12px] font-bold text-navy shadow-sm disabled:opacity-40 cursor-pointer"
+                >
+                  <span>Next</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Applicant Profile Card */}
+              <div className="card p-4 border border-line space-y-3.5">
+                <div className="flex items-start gap-3">
+                  <InitialsAvatar name={selectedApplicant.name} size={48} />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-[16px] font-bold text-ink">{selectedApplicant.name}</h4>
+                    <p className="text-[12.5px] font-medium text-sub">{selectedApplicant.branch} · Batch {selectedApplicant.batch}</p>
+                    <p className="text-[11px] text-sub/70 mt-0.5">Applied: {selectedApplicant.appliedAt}</p>
+                  </div>
+                  <Tag tone="mint">Applied</Tag>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[12.5px] pt-1">
+                  {selectedApplicant.email && (
+                    <div className="rounded-xl bg-page p-2.5 border border-line/60">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-sub">Email</span>
+                      <a href={`mailto:${selectedApplicant.email}`} className="font-semibold text-navy truncate block">{selectedApplicant.email}</a>
+                    </div>
+                  )}
+                  {selectedApplicant.phone && (
+                    <div className="rounded-xl bg-page p-2.5 border border-line/60">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-sub">Phone</span>
+                      <a href={`tel:${selectedApplicant.phone}`} className="font-semibold text-navy block">{selectedApplicant.phone}</a>
+                    </div>
+                  )}
+                </div>
+
+                {selectedApplicant.college && (
+                  <div className="text-[12.5px]">
+                    <span className="font-semibold text-sub">College:</span> <span className="font-bold text-ink">{selectedApplicant.college}</span> ({selectedApplicant.course || "B.Tech"})
+                  </div>
+                )}
+
+                {selectedApplicant.skills && selectedApplicant.skills.length > 0 && (
+                  <div>
+                    <span className="block text-[12px] font-bold text-sub mb-1">Skills</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedApplicant.skills.map((s) => (
+                        <Tag key={s} tone="peri">{s}</Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedApplicant.experience && (
+                  <div>
+                    <span className="block text-[12px] font-bold text-sub mb-1">Experience / Projects</span>
+                    <p className="rounded-xl bg-page p-3 text-[12.5px] leading-relaxed text-ink border border-line/60">{selectedApplicant.experience}</p>
+                  </div>
+                )}
+
+                {(selectedApplicant.coverLetter || selectedApplicant.note) && (
+                  <div>
+                    <span className="block text-[12px] font-bold text-sub mb-1">Cover Letter / Note</span>
+                    <p className="rounded-xl bg-page p-3 text-[12.5px] leading-relaxed text-ink border border-line/60">{selectedApplicant.coverLetter || selectedApplicant.note}</p>
+                  </div>
+                )}
+
+                {/* RESUME VIEW & DOWNLOAD ACTION BUTTONS */}
+                {selectedApplicant.resumeUrl ? (
+                  <div className="rounded-2xl bg-gold/10 p-3.5 border border-gold/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12.5px] font-bold text-gold-800 flex items-center gap-1.5">
+                        <FileText size={16} /> Attachments
+                      </span>
+                      <span className="text-[11px] font-semibold text-gold-700">{selectedApplicant.resumeOriginalName || "Resume.pdf"}</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <a
+                        href={selectedApplicant.resumeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-press flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gold py-2.5 text-[12px] font-bold text-ink shadow-sm cursor-pointer hover:bg-gold-400"
+                      >
+                        <Eye size={14} />
+                        <span>View Resume</span>
+                      </a>
+                      <a
+                        href={selectedApplicant.resumeUrl}
+                        download={selectedApplicant.resumeOriginalName || "resume.pdf"}
+                        className="btn-press flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-white border border-line py-2.5 text-[12.5px] font-bold text-sub hover:text-navy cursor-pointer"
+                      >
+                        <Download size={14} />
+                        <span>Download</span>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-page p-3 text-center border border-line text-[12px] text-sub">
+                    No resume document was attached to this application.
+                  </div>
+                )}
+
+                {/* Action Controls */}
+                <div className="flex items-center gap-2 pt-2 border-t border-line">
+                  <button
+                    onClick={() => {
+                      setApplicantsDrawerOpen(false);
+                      push({ name: "chatRoom", id: `c_${selectedApplicant.studentId}` });
+                    }}
+                    className="btn-press flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-navy py-2.5 text-[12.5px] font-bold text-white shadow-sm cursor-pointer"
+                  >
+                    <MessageCircle size={14} />
+                    <span>Message Student</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setApplicantsDrawerOpen(false);
+                      push({ name: "profile", id: selectedApplicant.studentId });
+                    }}
+                    className="btn-press rounded-xl bg-white border border-line px-4 py-2.5 text-[12.5px] font-bold text-sub hover:text-navy cursor-pointer"
+                  >
+                    View Full Profile
+                  </button>
+                </div>
+              </div>
+
+              {/* Applicant Card Selector List */}
+              <div className="space-y-2 pt-2">
+                <p className="text-[12px] font-bold text-ink">All Submissions ({applicantList.length})</p>
+                {applicantList.map((app, idx) => (
+                  <button
+                    key={app.id}
+                    onClick={() => setSelectedIndex(idx)}
+                    className={`w-full text-left rounded-xl p-3 border transition-all cursor-pointer ${
+                      selectedIndex === idx ? "border-navy bg-navy-50 ring-1 ring-navy/20" : "border-line bg-white hover:bg-page"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <InitialsAvatar name={app.name} size={30} />
+                        <div>
+                          <p className="text-[13px] font-bold text-ink">{app.name}</p>
+                          <p className="text-[11px] text-sub">{app.branch} · {app.batch}</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-medium text-sub">{app.appliedAt}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </Sheet>
     </div>

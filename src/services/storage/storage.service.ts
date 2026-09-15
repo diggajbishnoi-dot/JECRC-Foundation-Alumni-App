@@ -49,4 +49,29 @@ export class StorageService {
       folder,
     );
   }
+
+  /**
+   * Upload Base64 Document (Resume/CV PDF, DOCX, etc.) to S3 object storage
+   */
+  async uploadBase64Document(
+    base64Data: string,
+    folder: 'avatars' | 'posts' | 'resumes' | 'chat' = 'resumes',
+    filename: string = 'resume.pdf',
+  ): Promise<string> {
+    const matches = base64Data.match(/^data:([a-zA-Z0-9.\-\/+]+);base64,(.+)$/);
+    let buffer: Buffer;
+    let mimetype = 'application/pdf';
+
+    if (matches && matches.length === 3) {
+      mimetype = matches[1];
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      buffer = Buffer.from(base64Data, 'base64');
+    }
+
+    return await this.uploadFile(
+      { originalname: filename, buffer, mimetype },
+      folder,
+    );
+  }
 }
