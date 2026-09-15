@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  TrendingUp, MessageSquare, Plus, Send, Users, GraduationCap, Check,
+  TrendingUp, MessageSquare, Plus, Send, GraduationCap, Check,
   MessagesSquare, HeartHandshake, UserCheck, Inbox, Trash2,
   BadgeCheck, UserPlus, Sparkles,
 } from "lucide-react";
@@ -359,9 +359,6 @@ export function GroupsScreen() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className="font-display text-[16px] font-bold text-ink">{myBatchGroup.name}</h4>
-                    <p className="mt-0.5 text-[12px] text-sub flex items-center gap-1.5">
-                      <Users size={12} className="text-navy" /> {myBatchGroup.members} members registered
-                    </p>
                     <p className="mt-2 text-[12.5px] text-ink/75 leading-relaxed">{myBatchGroup.desc}</p>
                   </div>
                 </div>
@@ -403,9 +400,6 @@ export function GroupsScreen() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className="font-display text-[16px] font-bold text-ink">{myDeptCommunity.name}</h4>
-                    <p className="mt-0.5 text-[12px] text-sub flex items-center gap-1.5">
-                      <Users size={12} className="text-navy" /> {myDeptCommunity.members} members registered
-                    </p>
                     <p className="mt-2 text-[12.5px] text-ink/75 leading-relaxed">{myDeptCommunity.desc}</p>
                   </div>
                 </div>
@@ -504,10 +498,6 @@ export function GroupDetailScreen({ id }: { id: string }) {
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-sub">
-              <span className="flex items-center gap-1 font-semibold text-navy">
-                <Users size={13} /> {g.members + (isJoined ? 1 : 0)} members
-              </span>
-              <span>•</span>
               <span className="rounded-md bg-page px-2 py-0.5 font-medium text-sub/80 border border-line">
                 {g.tag === "Batch" ? `Batch of ${g.batch}` : `${g.branch} Engineering`}
               </span>

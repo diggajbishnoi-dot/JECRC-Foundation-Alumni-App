@@ -117,7 +117,7 @@ const generateBatchGroups = (): Group[] => {
     list.push({
       id: `batch-${y}`,
       name: `Class of ${y} (Batch ${y})`,
-      members: Math.floor(180 + ((y * 23) % 240)),
+      members: 0,
       tag: "Batch",
       type: "batch",
       batch: String(y),
@@ -131,7 +131,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-cse",
     name: "CSE Department Community",
-    members: 1420,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "CSE",
@@ -140,7 +140,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-aiml",
     name: "AI & Machine Learning (AIML / CSAI) Community",
-    members: 890,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "AIML",
@@ -149,7 +149,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-aids",
     name: "AI & Data Science (AIDS) Community",
-    members: 640,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "AIDS",
@@ -158,7 +158,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-it",
     name: "Information Technology (IT) Community",
-    members: 980,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "IT",
@@ -167,7 +167,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-ece",
     name: "Electronics & Communication (ECE) Community",
-    members: 1120,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "ECE",
@@ -176,7 +176,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-me",
     name: "Mechanical Engineering (ME) Community",
-    members: 760,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "ME",
@@ -185,7 +185,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-ee",
     name: "Electrical Engineering (EE) Community",
-    members: 620,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "EE",
@@ -194,7 +194,7 @@ const departmentCommunities: Group[] = [
   {
     id: "dept-civil",
     name: "Civil Engineering Community",
-    members: 530,
+    members: 0,
     tag: "Department",
     type: "department",
     branch: "Civil",
