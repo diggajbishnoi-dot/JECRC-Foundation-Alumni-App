@@ -310,23 +310,36 @@ export default function AuthFlow() {
         const u = res.data.user;
         const uRole = (u.role?.toLowerCase() as Role) || "alumni";
         setRole(uRole);
-        setMe({
+
+        let savedLocal: any = {};
+        try {
+          const raw =
+            localStorage.getItem(`user_me_profile_${u.id}`) ||
+            localStorage.getItem(`user_me_profile_by_email_${u.email?.toLowerCase()}`) ||
+            localStorage.getItem("user_me_profile_latest");
+          if (raw) savedLocal = JSON.parse(raw);
+        } catch (e) {}
+
+        const mappedMe = {
           id: u.id,
-          name: u.name,
+          name: savedLocal.name || u.name,
           email: u.email,
           role: uRole,
-          branch: u.alumniDetails?.branch || u.studentDetails?.branch || "CSE",
-          batch: u.alumniDetails?.batch || "2020",
-          company: u.alumniDetails?.currentCompany,
-          city: u.city || "Jaipur",
-          about: u.bio || "JECRC Alumni Network Member",
+          branch: savedLocal.branch || u.alumniDetails?.branch || u.studentDetails?.branch || "CSE",
+          batch: savedLocal.batch || u.alumniDetails?.batch || "2020",
+          company: savedLocal.company !== undefined ? savedLocal.company : (u.alumniDetails?.currentCompany || ""),
+          city: savedLocal.city || u.city || "Jaipur",
+          about: savedLocal.about || u.bio || "JECRC Alumni Network Member",
           color: uRole === "alumni" ? "#0F2A5E" : "#2563EB",
           headline:
+            savedLocal.headline ||
             u.bio ||
             (u.alumniDetails
               ? `${u.alumniDetails.designation || "Alumnus"} at ${u.alumniDetails.currentCompany || "JECRC"}`
               : "JECRC Student"),
-        });
+        };
+
+        setMe(mappedMe);
         setPhase("app");
         toast(`Welcome back, ${u.name.split(" ")[0] || "Member"}!`);
         return;

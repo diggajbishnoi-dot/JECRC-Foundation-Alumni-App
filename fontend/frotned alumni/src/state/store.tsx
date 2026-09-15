@@ -182,13 +182,29 @@ const saveReadNotifId = (notifId: string) => {
   } catch (e) {}
 };
 
+const getSavedMeProfile = (): Person => {
+  try {
+    const raw = localStorage.getItem("user_me_profile_latest");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.name) {
+        return {
+          ...parsed,
+          name: capitalizeName(parsed.name),
+        };
+      }
+    }
+  } catch (e) {}
+  return {
+    ...meAlumni,
+    name: capitalizeName(meAlumni.name),
+  };
+};
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>("splash");
   const [role, setRole] = useState<Role>("alumni");
-  const [me, setMeState] = useState<Person>(() => ({
-    ...meAlumni,
-    name: capitalizeName(meAlumni.name),
-  }));
+  const [me, setMeState] = useState<Person>(getSavedMeProfile);
 
   const setMe = useCallback((val: Person | ((prev: Person) => Person)) => {
     setMeState((prev) => {
@@ -198,6 +214,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         name: capitalizeName(next.name),
       };
       registerDynamicUser(formatted);
+      try {
+        if (formatted.id && formatted.id !== "me") {
+          localStorage.setItem(`user_me_profile_${formatted.id}`, JSON.stringify(formatted));
+          if (formatted.email) {
+            localStorage.setItem(`user_me_profile_by_email_${formatted.email.toLowerCase()}`, JSON.stringify(formatted));
+          }
+        }
+        localStorage.setItem("user_me_profile_latest", JSON.stringify(formatted));
+      } catch (e) {}
       return formatted;
     });
   }, []);
