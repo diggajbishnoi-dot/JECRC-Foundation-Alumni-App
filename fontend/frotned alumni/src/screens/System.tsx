@@ -55,8 +55,8 @@ export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
       {embedded ? (
         <div className="flex items-center justify-between px-5 pb-1 pt-3">
           <div>
-            <h1 className="font-display text-[24px] font-bold tracking-tight text-ink">Updates &amp; Alerts</h1>
-            <p className="text-[12px] text-sub">Connection requests, network updates &amp; alerts</p>
+            <h1 className="font-display text-[24px] font-bold tracking-tight text-ink">Notifications</h1>
+            <p className="text-[12px] text-sub">Connection requests, messages &amp; recent activity</p>
           </div>
           <button onClick={markAllNotifs} className="btn-press flex items-center gap-1.5 text-[12.5px] font-bold text-navy cursor-pointer">
             <CheckCheck size={15} /> Mark all read
@@ -64,7 +64,7 @@ export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
         </div>
       ) : (
         <ScreenHeader
-          title="Updates & Notifications"
+          title="Notifications"
           onBack={pop}
           right={
             <button onClick={markAllNotifs} className="btn-press mr-2 flex items-center gap-1 text-[12px] font-bold text-navy cursor-pointer">

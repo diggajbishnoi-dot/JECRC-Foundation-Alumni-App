@@ -56,7 +56,7 @@ function navItems(_role: string, chatBadge: number, notifBadge: number) {
     { id: "home", icon: House, label: "Home" },
     { id: "directory", icon: Users, label: "Directory" },
     { id: "chat", icon: MessageCircle, label: "Chats", badge: chatBadge },
-    { id: "alerts", icon: Bell, label: "Updates", badge: notifBadge },
+    { id: "alerts", icon: Bell, label: "Notifications", badge: notifBadge },
     { id: "profile", icon: CircleUserRound, label: "Profile" },
   ];
   return base;
