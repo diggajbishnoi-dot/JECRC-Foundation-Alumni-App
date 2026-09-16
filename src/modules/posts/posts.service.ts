@@ -54,70 +54,67 @@ export class PostsService {
    * Get paginated post feed with application count
    */
   async getPostsFeed(query: QueryPostsDto) {
-    const where: Prisma.PostWhereInput = {};
+    try {
+      const page = Math.max(1, Number(query?.page) || 1);
+      const limit = Math.min(100, Math.max(1, Number(query?.limit) || 20));
+      const skip = (page - 1) * limit;
+      const take = limit;
 
-    if (query.type) {
-      where.type = query.type;
-    }
+      const where: Prisma.PostWhereInput = {};
 
-    if (query.location) {
-      where.location = { contains: query.location, mode: 'insensitive' };
-    }
+      if (query?.type) {
+        where.type = query.type;
+      }
 
-    // Only show posts that haven't expired (deadline is null or in the future)
-    where.OR = [
-      { deadline: null },
-      { deadline: { gte: new Date() } },
-    ];
+      if (query?.location) {
+        where.location = { contains: query.location, mode: 'insensitive' };
+      }
 
-    const page = Math.max(1, Number(query?.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(query?.limit) || 20));
-    const skip = (page - 1) * limit;
-    const take = limit;
-
-    const [posts, total] = await Promise.all([
-      this.prisma.post.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              role: true,
-              profilePicUrl: true,
-              alumniDetails: true,
-              studentDetails: true,
+      const [posts, total] = await Promise.all([
+        this.prisma.post.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+                profilePicUrl: true,
+                alumniDetails: true,
+                studentDetails: true,
+              },
+            },
+            _count: {
+              select: { jobApplications: true },
             },
           },
-          _count: {
-            select: { jobApplications: true },
-          },
-        },
-      }),
-      this.prisma.post.count({ where }),
-    ]);
+        }),
+        this.prisma.post.count({ where }),
+      ]);
 
-    const formattedPosts = posts.map((p: any) => {
-      const applicantCount = p._count?.jobApplications ?? p.jobApplications?.length ?? 0;
-      const { _count, jobApplications, ...rest } = p;
+      const formattedPosts = posts.map((p: any) => {
+        const applicantCount = p._count?.jobApplications ?? p.jobApplications?.length ?? 0;
+        const { _count, jobApplications, ...rest } = p;
+        return {
+          ...rest,
+          applicantCount,
+        };
+      });
+
       return {
-        ...rest,
-        applicantCount,
-      };
-    });
-
-    return {
-      items: formattedPosts,
-      meta: {
+        items: formattedPosts,
         total,
-        page: query.page || 1,
-        limit: query.limit || 20,
-        totalPages: Math.ceil(total / (query.limit || 20)),
-      },
-    };
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (err: any) {
+      console.error('getPostsFeed error:', err);
+      throw err;
+    }
   }
 
   /**
