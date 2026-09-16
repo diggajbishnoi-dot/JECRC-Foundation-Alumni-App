@@ -87,20 +87,16 @@ export class PostsService {
                 studentDetails: true,
               },
             },
-            _count: {
-              select: { jobApplications: true },
-            },
           },
         }),
         this.prisma.post.count({ where }),
       ]);
 
       const formattedPosts = posts.map((p: any) => {
-        const applicantCount = p._count?.jobApplications ?? p.jobApplications?.length ?? 0;
-        const { _count, jobApplications, ...rest } = p;
+        const { jobApplications, ...rest } = p;
         return {
           ...rest,
-          applicantCount,
+          applicantCount: 0,
         };
       });
 
