@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { StorageModule } from '../../services/storage/storage.module';
 import { ConnectionsModule } from '../connections/connections.module';
@@ -7,7 +7,7 @@ import { MessagesGateway } from './messages.gateway';
 import { MessagesService } from './messages.service';
 
 @Module({
-  imports: [ConnectionsModule, StorageModule, JwtModule.register({})],
+  imports: [forwardRef(() => ConnectionsModule), StorageModule, JwtModule.register({})],
   controllers: [MessagesController],
   providers: [
     MessagesService,

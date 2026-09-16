@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { MessageStatus } from '@prisma/client';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
@@ -20,6 +22,7 @@ export class MessagesService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => ConnectionsService))
     private readonly connectionsService: ConnectionsService,
     private readonly redisService: RedisService,
     private readonly fcmService: FcmService,
