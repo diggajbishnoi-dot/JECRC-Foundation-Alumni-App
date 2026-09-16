@@ -52,10 +52,20 @@ class ApiService {
     try {
       const parts = this.accessToken.split('.');
       if (parts.length >= 2) {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4 !== 0) {
+          base64 += '=';
+        }
+        const decoded = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const payload = JSON.parse(decoded);
         return payload.sub || payload.id || payload.userId || null;
       }
-    } catch (e) {}
+    } catch (_e) {}
     return null;
   }
 

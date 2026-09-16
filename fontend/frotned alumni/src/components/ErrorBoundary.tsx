@@ -30,13 +30,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Safe server-side / console-only logging — never exposes secrets or tokens.
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error("[ErrorBoundary] Uncaught render error:", error, info.componentStack);
-    }
-    // TODO: wire up a real error-reporting service (e.g. Sentry) here —
-    // make sure it is configured to scrub tokens/PII before sending.
+    // Safe console logging to easily debug in F12 console
+    console.error("[ErrorBoundary] Uncaught render error:", error, info?.componentStack);
   }
 
   reset = () => {
@@ -56,6 +51,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
 /* ---------- default fallback UI ---------- */
 function DefaultFallback({ onReset }: { onReset: () => void }) {
+  const handleClearCache = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (_e) {}
+    window.location.reload();
+  };
+
   return (
     <div
       role="alert"
@@ -103,18 +106,17 @@ function DefaultFallback({ onReset }: { onReset: () => void }) {
         Something went wrong
       </h1>
 
-      {/* Generic message — no sensitive details */}
+      {/* Generic message */}
       <p
         style={{
           margin: 0,
           color: "#94a3b8",
           fontSize: "0.95rem",
-          maxWidth: 360,
+          maxWidth: 380,
           lineHeight: 1.6,
         }}
       >
-        An unexpected error occurred. Your data is safe. Please try reloading the
-        app — if the problem persists, contact support.
+        An unexpected error occurred. Click below to reload or reset session cache to continue.
       </p>
 
       {/* Actions */}
@@ -136,6 +138,23 @@ function DefaultFallback({ onReset }: { onReset: () => void }) {
           }}
         >
           Reload app
+        </button>
+        <button
+          id="error-boundary-clear-btn"
+          onClick={handleClearCache}
+          style={{
+            padding: "0.6rem 1.4rem",
+            borderRadius: "2rem",
+            border: "1.5px solid rgba(244,63,94,0.4)",
+            background: "rgba(244,63,94,0.1)",
+            color: "#fda4af",
+            fontSize: "0.9rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            letterSpacing: "0.01em",
+          }}
+        >
+          Reset Session &amp; Restart
         </button>
         <button
           id="error-boundary-retry-btn"

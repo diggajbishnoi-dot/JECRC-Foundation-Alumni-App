@@ -19,12 +19,12 @@ function HomeHeader() {
   return (
     <div className="flex items-center justify-between">
       <button className="btn-press flex items-center gap-3 cursor-pointer" onClick={() => goTab("profile")}>
-        <InitialsAvatar name={me.name} size={42} />
+        <InitialsAvatar name={me.name || "Member"} size={42} />
         <div className="text-left">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sub/70">
-            {role === "alumni" ? `Alumni · Batch ${me.batch}` : `Student · ${me.branch} '${me.batch.slice(2)}`}
+            {role === "alumni" ? `Alumni · Batch ${me.batch || "2020"}` : `Student · ${me.branch || "CSE"} '${(me.batch || "2027").slice(-2)}`}
           </p>
-          <p className="font-display text-[17px] font-semibold text-ink">{me.name.split(" ")[0]}</p>
+          <p className="font-display text-[17px] font-semibold text-ink">{(me.name || "Member").split(" ")[0]}</p>
         </div>
       </button>
       <div className="flex items-center gap-2">

@@ -303,7 +303,7 @@ export function DirectoryScreen() {
                             <p className="truncate text-[12.5px] text-sub">{p.headline}</p>
                             <div className="mt-1.5 flex items-center gap-2">
                               <Tag tone={p.role === "alumni" ? "gold" : "peri"}>
-                                {p.role === "alumni" ? `Alumni '${p.batch.slice(2)}` : "Student"}
+                                {p.role === "alumni" ? `Alumni '${(p.batch || "2020").slice(-2)}` : "Student"}
                               </Tag>
                               <span className="flex items-center gap-0.5 text-[11px] text-sub/70">
                                 <MapPin size={10} /> {p.city}
