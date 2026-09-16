@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Person, people, meAlumni, Job, JobApplicant, Thread, Notif, groups as seedGroups } from "../data/mock";
+import { Person, people, meAlumni, Job, jobs, JobApplicant, Thread, threads, Notif, groups as seedGroups } from "../data/mock";
 import { capitalizeName } from "../components/ui";
 import { api } from "../services/api";
 import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
@@ -233,7 +233,7 @@ const getSavedJobs = (): Job[] => {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  return [];
+  return jobs;
 };
 
 const getSavedChats = (): Chat[] => {
@@ -303,7 +303,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [allJobs, setAllJobs] = useState<Job[]>(getSavedJobs);
   const meRef = useRef<Person>(me);
   meRef.current = me;
-  const [allThreads, setAllThreads] = useState<Thread[]>([]);
+  const [allThreads, setAllThreads] = useState<Thread[]>(() => threads);
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [mentorReq, setMentorReq] = useState<Record<string, "none" | "pending" | "active">>({});

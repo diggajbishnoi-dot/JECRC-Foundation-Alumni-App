@@ -632,7 +632,7 @@ export function MentorshipScreen() {
     api.getMentors()
       .then((res) => {
         setLoading(false);
-        if (res.success && Array.isArray(res.data?.items)) {
+        if (res.success && Array.isArray(res.data?.items) && res.data.items.length > 0) {
           const mapped: Person[] = res.data.items.map((m: any) => {
             const u = m.user || {};
             const al = u.alumniDetails || {};
@@ -658,12 +658,16 @@ export function MentorshipScreen() {
           });
           setMentors(mapped);
         } else {
-          setMentors([]);
+          const mentorPool = people.filter((p) => p.mentor);
+          mentorPool.forEach((p) => registerDynamicUser(p));
+          setMentors(mentorPool);
         }
       })
       .catch(() => {
         setLoading(false);
-        setMentors([]);
+        const mentorPool = people.filter((p) => p.mentor);
+        mentorPool.forEach((p) => registerDynamicUser(p));
+        setMentors(mentorPool);
       });
   }, []);
 
