@@ -60,11 +60,16 @@ export class DiscussionsService {
       ];
     }
 
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query?.limit) || 20));
+    const skip = (page - 1) * limit;
+    const take = limit;
+
     const [threads, total] = await Promise.all([
       this.prisma.discussionThread.findMany({
         where,
-        skip: query.skip,
-        take: query.take,
+        skip,
+        take,
         orderBy:
           query.sortBy === 'upvotes'
             ? { upvotes: { _count: 'desc' } }

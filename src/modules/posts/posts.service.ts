@@ -73,11 +73,16 @@ export class PostsService {
       { deadline: { gte: new Date() } },
     ];
 
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query?.limit) || 20));
+    const skip = (page - 1) * limit;
+    const take = limit;
+
     const [posts, total] = await Promise.all([
       this.prisma.post.findMany({
         where,
-        skip: query.skip,
-        take: query.take,
+        skip,
+        take,
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
