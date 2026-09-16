@@ -243,4 +243,33 @@ export class MessagesService {
       },
     };
   }
+
+  /**
+   * Delete message
+   * If forEveryone = true, only sender can delete for everyone.
+   */
+  async deleteMessage(currentUserId: string, messageId: string, forEveryone: boolean = false) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      return { success: true, messageId, alreadyDeleted: true };
+    }
+
+    if (forEveryone) {
+      if (message.senderId !== currentUserId) {
+        throw new ForbiddenException('Only the sender can delete a message for everyone');
+      }
+      await this.prisma.message.delete({
+        where: { id: messageId },
+      });
+      return { success: true, messageId, forEveryone: true, partnerId: message.receiverId };
+    } else {
+      if (message.senderId !== currentUserId && message.receiverId !== currentUserId) {
+        throw new ForbiddenException('You are not a participant in this conversation');
+      }
+      return { success: true, messageId, forEveryone: false };
+    }
+  }
 }

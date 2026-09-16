@@ -130,7 +130,7 @@ const generateBatchGroups = (): Group[] => {
       tag: "Batch",
       type: "batch",
       batch: String(y),
-      desc: `Official JECRC Foundation alumni & student group for the Class of ${y}. Connect with your batchmates, share milestones and stay in touch.`,
+      desc: `Official JECRC Foundation alumni & student group for the Class of ${y} (Passout Batch ${y}). Connect with your batchmates, share milestones and stay in touch.`,
     });
   }
   return list;

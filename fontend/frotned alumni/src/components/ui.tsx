@@ -221,20 +221,42 @@ export function Sheet({
       {open && (
         <>
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
             onClick={onClose}
-            className="absolute inset-0 z-[70] bg-ink/40 backdrop-blur-[2px]"
+            className="absolute inset-0 z-[70] bg-ink/50 backdrop-blur-[3px]"
           />
           <motion.div
-            initial={{ y: "105%" }} animate={{ y: 0 }} exit={{ y: "105%" }}
-            transition={{ type: "spring", stiffness: 380, damping: 38 }}
-            drag="y" dragConstraints={{ top: 0 }} dragElastic={0.4}
-            onDragEnd={(_, i) => i.offset.y > 110 && onClose()}
-            className="absolute inset-x-0 bottom-0 z-[71] max-h-[82%] overflow-y-auto no-scrollbar rounded-t-[24px] bg-white p-5 pb-9"
+            initial={{ y: "105%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "105%" }}
+            transition={{ type: "spring", stiffness: 340, damping: 34 }}
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={0.25}
+            onDragEnd={(_, i) => i.offset.y > 90 && onClose()}
+            className="absolute inset-x-0 bottom-0 z-[71] max-h-[92%] flex flex-col rounded-t-[28px] bg-white shadow-[0_-12px_45px_rgba(15,42,94,0.22)] border-t border-line/60"
           >
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line" />
-            {title && <h3 className="mb-4 font-display text-lg font-semibold text-ink">{title}</h3>}
-            {children}
+            <div className="shrink-0 px-5 pt-3 pb-2 text-center">
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-300 cursor-grab active:cursor-grabbing" />
+              {title && (
+                <div className="flex items-center justify-between pb-1">
+                  <h3 className="font-display text-[20px] font-bold text-ink">{title}</h3>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="btn-press flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sub hover:text-ink cursor-pointer text-[13px] font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-8">
+              {children}
+            </div>
           </motion.div>
         </>
       )}

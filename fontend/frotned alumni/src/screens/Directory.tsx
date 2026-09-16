@@ -539,29 +539,29 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                 )}
               </div>
 
-              <div className="min-w-0">
-                <h2 className="font-display text-[22px] sm:text-[24px] font-bold text-ink leading-tight">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <h2 className="font-display text-[22px] sm:text-[24px] font-bold text-ink leading-tight break-words break-all">
                   {p.name}
                 </h2>
-                <p className="mt-1 text-[13.5px] font-medium text-sub">{p.headline}</p>
+                <p className="mt-1 text-[13.5px] font-medium text-sub break-words">{p.headline}</p>
               </div>
 
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[12px] text-sub">
                 <span className="flex items-center gap-1.5">
-                  <GraduationCap size={14} className="text-navy" /> {p.branch} · {p.batch}
+                  <GraduationCap size={14} className="text-navy shrink-0" /> {p.branch} · {p.batch}
                 </span>
                 {p.email && (
-                  <span className="flex items-center gap-1.5 font-medium text-navy">
-                    <Mail size={14} className="text-navy" /> {p.email}
+                  <span className="flex items-center gap-1.5 font-medium text-navy break-all">
+                    <Mail size={14} className="text-navy shrink-0" /> {p.email}
                   </span>
                 )}
                 {p.company && (
                   <span className="flex items-center gap-1.5">
-                    <Building2 size={14} className="text-navy" /> {p.company}
+                    <Building2 size={14} className="text-navy shrink-0" /> {p.company}
                   </span>
                 )}
                 <span className="flex items-center gap-1.5">
-                  <MapPin size={14} className="text-navy" /> {p.city}
+                  <MapPin size={14} className="text-navy shrink-0" /> {p.city}
                 </span>
               </div>
 
@@ -672,7 +672,7 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                 <div className="card p-4 space-y-4">
                   <div>
                     <p className="label">Bio</p>
-                    <p className="text-[13.5px] leading-relaxed text-sub">{p.about}</p>
+                    <p className="text-[13.5px] leading-relaxed text-sub break-words break-all whitespace-pre-wrap">{p.about || "No bio added yet."}</p>
                   </div>
                   <div className="rounded-xl bg-slate-50 p-3.5 border border-line/60">
                     <div className="flex items-center justify-between">
@@ -775,7 +775,7 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
               setEditOpen(false);
             }
           }}
-          className="space-y-4 pt-1"
+          className="space-y-4 pt-1 pb-6"
         >
           <div>
             <label className="label">Full Name</label>
@@ -800,7 +800,7 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
               value={p.email || me.email || ""}
               disabled
               readOnly
-              className="input w-full bg-slate-100 text-sub cursor-not-allowed opacity-80 font-medium"
+              className="input w-full bg-slate-100 text-sub cursor-not-allowed opacity-80 font-medium select-all"
             />
             <p className="mt-1 text-[11px] text-sub/70">Email is permanently linked to your institutional profile and cannot be changed.</p>
           </div>
@@ -821,7 +821,7 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
               <select
                 value={editForm.branch}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, branch: e.target.value }))}
-                className="input w-full"
+                className="input w-full cursor-pointer"
               >
                 {["CSE", "CSAI", "AIDS", "IT", "ECE", "EE", "ME", "Civil"].map((b) => (
                   <option key={b} value={b}>{b}</option>
@@ -829,18 +829,18 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
               </select>
             </div>
             <div>
-              <label className="label">{p.role === "alumni" ? "Batch Year" : "Passout Year"}</label>
+              <label className="label">Passout Year (Batch)</label>
               <select
                 value={editForm.batch}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, batch: e.target.value }))}
-                className="input w-full"
+                className="input w-full cursor-pointer"
               >
                 {p.role === "alumni"
-                  ? Array.from({ length: 23 }, (_, i) => `${2026 - i}`).map((y) => (
-                      <option key={y} value={y}>{y}</option>
+                  ? Array.from({ length: 23 }, (_, i) => `${2004 + i}`).map((y) => (
+                      <option key={y} value={y}>Batch {y} (Passout {y})</option>
                     ))
                   : ["2024", "2025", "2026", "2027", "2028", "2029", "2030"].map((y) => (
-                      <option key={y} value={y}>{y}</option>
+                      <option key={y} value={y}>Class of {y} (Batch {y})</option>
                     ))}
               </select>
             </div>
@@ -878,17 +878,17 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
               placeholder="Tell alumni about your background and how you can help..."
             />
           </div>
-          <div className="pt-2 flex gap-3">
+          <div className="pt-3 pb-2 flex gap-3">
             <button
               type="button"
               onClick={() => setEditOpen(false)}
-              className="btn-press flex-1 h-12 rounded-xl border border-line font-semibold text-sub hover:bg-page transition-colors cursor-pointer"
+              className="btn-press flex-1 h-12 rounded-xl bg-slate-100 font-bold text-sub hover:bg-slate-200 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-press flex-1 h-12 rounded-xl bg-navy font-bold text-white shadow-md hover:bg-navy-700 transition-colors cursor-pointer"
+              className="btn-press flex-1 h-12 rounded-xl bg-navy font-bold text-white shadow-[0_4px_16px_rgba(15,42,94,0.3)] hover:bg-navy-700 transition-all cursor-pointer"
             >
               Save Changes
             </button>

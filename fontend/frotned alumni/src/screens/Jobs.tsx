@@ -367,16 +367,16 @@ export function JobDetailScreen({ id }: { id: string }) {
   const selectedApplicant = selectedIndex !== null ? applicantList[selectedIndex] : null;
 
   return (
-    <div className="flex h-full flex-col bg-page">
+    <div className="flex h-full flex-col bg-page w-full max-w-full overflow-hidden">
       <ScreenHeader title="Opportunity Detail" onBack={pop} />
-      <div className="flex-1 overflow-y-auto no-scrollbar px-4 sm:px-5 pb-8 pt-2 space-y-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-4 sm:px-5 pb-8 pt-2 space-y-4 max-w-full">
         {/* Main Job Overview Card */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card p-5 border border-line shadow-sm">
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card p-5 border border-line shadow-sm overflow-hidden w-full max-w-full">
           <div className="flex items-start gap-3.5">
             <InitialsAvatar name={j.company} size={54} rounded="rounded-2xl" />
-            <div className="min-w-0 flex-1">
-              <h2 className="font-display text-[19px] font-bold leading-tight text-ink">{j.title}</h2>
-              <p className="mt-1 text-[13px] font-medium text-sub">{j.company} · {j.location}</p>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <h2 className="font-display text-[19px] font-bold leading-tight text-ink break-words break-all">{j.title}</h2>
+              <p className="mt-1 text-[13px] font-medium text-sub break-words">{j.company} · {j.location}</p>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -390,9 +390,9 @@ export function JobDetailScreen({ id }: { id: string }) {
               { icon: CalendarDays, l: "Deadline", v: j.deadline.split(" ").slice(0, 2).join(" ") },
               { icon: Clock, l: "Posted", v: `${j.postedAgo}` },
             ].map((m) => (
-              <div key={m.l} className="rounded-xl bg-page p-3 text-center border border-line/60">
+              <div key={m.l} className="rounded-xl bg-page p-2.5 sm:p-3 text-center border border-line/60 overflow-hidden">
                 <m.icon size={15} className="mx-auto text-navy" />
-                <p className="mt-1.5 text-[12.5px] font-bold text-ink">{m.v}</p>
+                <p className="mt-1.5 text-[12px] sm:text-[12.5px] font-bold text-ink truncate">{m.v}</p>
                 <p className="text-[10px] font-medium text-sub">{m.l}</p>
               </div>
             ))}
@@ -400,34 +400,34 @@ export function JobDetailScreen({ id }: { id: string }) {
         </motion.div>
 
         {/* Role Description */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="card p-5 border border-line shadow-sm">
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="card p-5 border border-line shadow-sm overflow-hidden w-full max-w-full">
           <h3 className="font-display text-[16px] font-semibold text-ink">About the role</h3>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-sub">{j.desc}</p>
+          <p className="mt-2 text-[13.5px] leading-relaxed text-sub break-words break-all whitespace-pre-wrap">{j.desc}</p>
           <h3 className="mt-5 font-display text-[16px] font-semibold text-ink">Required skills</h3>
           <div className="mt-2.5 flex flex-wrap gap-2">
-            {j.skills.map((s) => <Tag key={s} tone="peri">{s}</Tag>)}
+            {j.skills.map((s) => <Tag key={s} tone="peri" className="max-w-full break-words">{s}</Tag>)}
           </div>
-          <div className="mt-5 rounded-xl bg-navy-50 p-3.5 border border-navy/10">
-            <p className="text-[12.5px] font-semibold text-navy">Posted by {j.postedBy}</p>
-            <p className="text-[11.5px] text-sub">Verified JECRC Alumni · Reviewing incoming student submissions</p>
+          <div className="mt-5 rounded-xl bg-navy-50 p-3.5 border border-navy/10 overflow-hidden">
+            <p className="text-[12.5px] font-semibold text-navy break-words">Posted by {j.postedBy}</p>
+            <p className="text-[11.5px] text-sub break-words">Verified JECRC Alumni · Reviewing incoming student submissions</p>
           </div>
         </motion.div>
 
         {/* ALUMNI APPLICANTS CARD & VIEW APPLICANTS ACTION */}
         {isPoster && (
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="card p-5 border border-line shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-line">
-              <div className="flex items-center gap-2">
-                <Users size={18} className="text-navy" />
-                <h3 className="font-display text-[16px] font-bold text-ink">Applicant Management</h3>
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="card p-5 border border-line shadow-sm overflow-hidden w-full max-w-full">
+            <div className="flex items-center justify-between pb-3 border-b border-line gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Users size={18} className="text-navy shrink-0" />
+                <h3 className="font-display text-[16px] font-bold text-ink truncate">Applicant Management</h3>
               </div>
-              <span className="rounded-full bg-gold/20 px-3 py-1 text-[12px] font-bold text-gold-700 border border-gold/30">
+              <span className="rounded-full bg-gold/20 px-3 py-1 text-[12px] font-bold text-gold-700 border border-gold/30 shrink-0">
                 {j.applicants || applicantList.length} {j.applicants === 1 || applicantList.length === 1 ? "Applicant" : "Applicants"}
               </span>
             </div>
 
-            <p className="mt-2 text-[11.5px] text-sub/80 italic flex items-center gap-1">
-              <Lock size={12} className="text-emerald-600" /> Private Section: Only you (the post creator) can access these applicants.
+            <p className="mt-2 text-[11.5px] text-sub/80 italic flex items-center gap-1 break-words">
+              <Lock size={12} className="text-emerald-600 shrink-0" /> Private Section: Only you (the post creator) can access these applicants.
             </p>
 
             <button

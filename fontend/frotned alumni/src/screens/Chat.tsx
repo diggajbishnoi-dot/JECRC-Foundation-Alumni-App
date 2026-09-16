@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Lock, ShieldCheck, Camera, Image as ImageIcon, FileText, Send,
-  Check, CheckCheck, ChevronLeft, Plus, MessageCircle, Download,
+  Check, CheckCheck, ChevronLeft, Plus, MessageCircle, Download, Trash2, Copy, Eye, X,
 } from "lucide-react";
 import { useStore, personById, ChatMsg } from "../state/store";
 import { EmptyState, InitialsAvatar, ListSkeleton, Sheet, TypingDots } from "../components/ui";
@@ -17,6 +17,40 @@ function Ticks({ status }: { status: ChatMsg["status"] }) {
     </motion.span>
   );
 }
+
+// Client-side image compression for fast and reliable encrypted chat transfers
+const compressChatImage = (file: File): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1200;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", 0.82);
+        resolve(compressed);
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 /* ============== CHAT LIST ============== */
 export function ChatListScreen() {
@@ -48,71 +82,75 @@ export function ChatListScreen() {
           <ShieldCheck size={13} className="text-mint" /> End-to-end encrypted · only you &amp; them can read
         </p>
 
-        <div className="relative mt-4">
-          <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-sub/60" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search conversations…" className="input !pl-11" />
+        {/* search */}
+        <div className="card mt-3 flex items-center gap-2.5 px-3.5 py-2.5">
+          <Search size={16} className="text-sub" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search conversations…"
+            className="w-full bg-transparent text-[13.5px] text-ink outline-none placeholder:text-sub/60"
+          />
         </div>
+      </div>
 
-        <div className="mt-5">
-          {loading ? (
-            <ListSkeleton rows={4} />
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={<MessageCircle size={34} />}
-              title="No conversations yet"
-              copy="Chats unlock when a connection or mentorship request gets accepted. Go say hi in the directory!"
-              cta="Open directory"
-              onCta={() => push({ name: "directoryTab" })}
-            />
-          ) : (
-            <div className="space-y-1">
-              {filtered.map((c, i) => {
-                const p = personById(c.userId);
-                const last = c.msgs[c.msgs.length - 1];
-                return (
-                  <motion.button
-                    key={c.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => { if (c.locked) return; setActiveChat(c.id); push({ name: "chatRoom", id: c.id }); }}
-                    className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors active:bg-white"
-                  >
-                    <div className="relative">
-                      <InitialsAvatar name={p.name} size={52} />
-                      {!c.locked && c.online && (
-                        <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-[2.5px] ring-page bg-mint" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="truncate text-[15px] font-bold text-ink">{p.name}</p>
-                        {!c.locked && last && <span className={`text-[11px] ${c.unread ? "font-bold text-navy" : "text-sub/60"}`}>{last.time}</span>}
-                      </div>
-                      {c.locked ? (
-                        <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] font-medium text-sub/70">
-                          <Lock size={12} className="text-gold-600" /> Locked — request pending
-                        </p>
-                      ) : (
-                        <div className="mt-0.5 flex items-center justify-between gap-2">
-                          <p className={`truncate text-[13px] ${c.unread ? "font-semibold text-ink" : "text-sub"}`}>
-                            {last ? (last.fromMe ? "You: " : "") + (last.kind === "doc" ? `Document: ${last.meta?.name}` : last.kind === "image" ? "Sent a photo" : last.text) : "Say hello"}
-                          </p>
-                          {c.unread > 0 && (
-                            <span className="flex h-[19px] min-w-[19px] shrink-0 items-center justify-center rounded-full bg-navy px-1.5 text-[10.5px] font-bold text-white">
-                              {c.unread}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* chat list */}
+      <div className="mt-4 px-3 space-y-1">
+        {loading ? (
+          <ListSkeleton rows={5} />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={<MessageCircle size={32} />}
+            title="No messages yet"
+            copy="Connect with alumni or students to start private, encrypted chats."
+            cta="Explore Directory"
+            onCta={() => push({ name: "directory" })}
+          />
+        ) : (
+          filtered.map((c) => {
+            const p = personById(c.userId);
+            const lastMsg = c.msgs[c.msgs.length - 1];
+            const lastText = lastMsg
+              ? lastMsg.kind === "image"
+                ? "📷 Photo"
+                : lastMsg.kind === "doc"
+                ? `📄 ${lastMsg.meta?.name || "Document"}`
+                : lastMsg.text
+              : "Tap to start conversation";
+
+            return (
+              <motion.button
+                key={c.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  setActiveChat(c.id);
+                  push({ name: "chatRoom", id: c.id });
+                }}
+                className="card flex w-full items-center gap-3.5 p-3.5 text-left transition-colors hover:border-navy/20 cursor-pointer"
+              >
+                <div className="relative">
+                  <InitialsAvatar name={p.name} size={46} />
+                  {c.online && (
+                    <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-mint" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="truncate text-[14.5px] font-bold text-ink">{p.name}</p>
+                    <span className="text-[11px] text-sub">{lastMsg ? lastMsg.time : ""}</span>
+                  </div>
+                  <p className="truncate text-[12px] text-sub">{p.headline}</p>
+                  <p className="mt-0.5 truncate text-[12.5px] text-ink/80">{lastText}</p>
+                </div>
+                {c.unread > 0 && (
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-navy px-1.5 text-[10.5px] font-bold text-white">
+                    {c.unread}
+                  </span>
+                )}
+              </motion.button>
+            );
+          })
+        )}
       </div>
     </div>
   );
@@ -120,11 +158,13 @@ export function ChatListScreen() {
 
 /* ============== CHAT ROOM ============== */
 export function ChatRoomScreen({ id }: { id: string }) {
-  const { pop, chats, sendChat, syncMessages, syncPresence, typing, setActiveChat } = useStore();
+  const { pop, chats, sendChat, syncMessages, syncPresence, typing, setActiveChat, deleteMessage, toast } = useStore();
   const chat = chats.find((c) => c.id === id || c.userId === id) || { id, userId: id, online: false, lastSeen: "Offline", unread: 0, msgs: [] };
   const p = personById(chat.userId);
   const [text, setText] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
+  const [selectedMsg, setSelectedMsg] = useState<ChatMsg | null>(null);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; name?: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isTyping = typing[chat.id];
 
@@ -152,7 +192,7 @@ export function ChatRoomScreen({ id }: { id: string }) {
     setText("");
   };
 
-  const handleFilePicked = (
+  const handleFilePicked = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "camera" | "gallery" | "doc"
   ) => {
@@ -165,28 +205,28 @@ export function ChatRoomScreen({ id }: { id: string }) {
         : `${Math.round(file.size / 1024)} KB`;
 
     if (type === "camera" || type === "gallery" || file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target?.result as string;
+      try {
+        const compressedDataUrl = await compressChatImage(file);
         try {
-          const res = await api.uploadChatAttachment(dataUrl, file.name);
-          const s3Url = (res.success && res.data?.url) ? res.data.url : dataUrl;
+          const res = await api.uploadChatAttachment(compressedDataUrl, file.name);
+          const finalUrl = (res.success && res.data?.url) ? res.data.url : compressedDataUrl;
           sendChat(chat.id, {
             fromMe: true,
             kind: "image",
             text: "",
-            meta: { name: file.name, size: sizeStr, url: s3Url },
+            meta: { name: file.name, size: sizeStr, url: finalUrl },
           });
-        } catch (e) {
+        } catch (_err) {
           sendChat(chat.id, {
             fromMe: true,
             kind: "image",
             text: "",
-            meta: { name: file.name, size: sizeStr, url: dataUrl },
+            meta: { name: file.name, size: sizeStr, url: compressedDataUrl },
           });
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (_e) {
+        toast("Failed to process image attachment");
+      }
     } else {
       const ext = file.name.split(".").pop()?.toUpperCase() || "DOC";
       sendChat(chat.id, {
@@ -197,6 +237,24 @@ export function ChatRoomScreen({ id }: { id: string }) {
       });
     }
     e.target.value = "";
+  };
+
+  const handleCopyMessage = (msg: ChatMsg) => {
+    if (msg.text) {
+      navigator.clipboard.writeText(msg.text);
+      toast("Message copied to clipboard!");
+    }
+    setSelectedMsg(null);
+  };
+
+  const handleDeleteForMe = (msg: ChatMsg) => {
+    deleteMessage(chat.id, msg.id, false);
+    setSelectedMsg(null);
+  };
+
+  const handleDeleteForEveryone = (msg: ChatMsg) => {
+    deleteMessage(chat.id, msg.id, true);
+    setSelectedMsg(null);
   };
 
   return (
@@ -271,19 +329,28 @@ export function ChatRoomScreen({ id }: { id: string }) {
             >
               {!m.fromMe && <InitialsAvatar name={p.name} size={26} className="mr-2 mt-auto" />}
               <div
-                className={`max-w-[76%] rounded-[18px] px-3.5 py-2.5 shadow-sm ${
+                onClick={() => setSelectedMsg(m)}
+                className={`max-w-[76%] rounded-[18px] px-3.5 py-2.5 shadow-sm transition-transform active:scale-[0.98] cursor-pointer ${
                   m.fromMe
                     ? "rounded-br-md bg-navy text-white"
                     : "rounded-bl-md bg-white text-ink"
                 }`}
               >
                 {m.kind === "image" && (
-                  <div className={`mb-1.5 overflow-hidden rounded-xl ${m.fromMe ? "bg-navy-700" : "bg-page"}`}>
+                  <div
+                    className={`mb-1.5 overflow-hidden rounded-xl cursor-pointer ${m.fromMe ? "bg-navy-700" : "bg-page"}`}
+                    onClick={(e) => {
+                      if (m.meta?.url) {
+                        e.stopPropagation();
+                        setFullscreenPhoto({ url: m.meta.url, name: m.meta.name });
+                      }
+                    }}
+                  >
                     {m.meta?.url ? (
                       <img
                         src={m.meta.url}
                         alt={m.meta?.name || "Uploaded photo"}
-                        className="max-h-56 max-w-full rounded-xl object-contain"
+                        className="max-h-56 max-w-full rounded-xl object-cover hover:opacity-95 transition-opacity"
                       />
                     ) : (
                       <div className="relative flex h-36 w-44 items-center justify-center bg-gradient-to-br from-peri to-navy-800 rounded-xl">
@@ -404,6 +471,110 @@ export function ChatRoomScreen({ id }: { id: string }) {
           ))}
         </div>
       </Sheet>
+
+      {/* message options sheet */}
+      <Sheet open={!!selectedMsg} onClose={() => setSelectedMsg(null)} title="Message Options">
+        {selectedMsg && (
+          <div className="space-y-2">
+            {selectedMsg.text && (
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleCopyMessage(selectedMsg)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-white p-3.5 text-left shadow-sm hover:bg-page cursor-pointer"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <Copy size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-bold text-ink">Copy Text</p>
+                  <p className="text-[11.5px] text-sub truncate">{selectedMsg.text}</p>
+                </div>
+              </motion.button>
+            )}
+
+            {selectedMsg.kind === "image" && selectedMsg.meta?.url && (
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  setFullscreenPhoto({ url: selectedMsg.meta!.url!, name: selectedMsg.meta?.name });
+                  setSelectedMsg(null);
+                }}
+                className="flex w-full items-center gap-3 rounded-2xl bg-white p-3.5 text-left shadow-sm hover:bg-page cursor-pointer"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <Eye size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-bold text-ink">View Photo</p>
+                  <p className="text-[11.5px] text-sub">Open full screen image</p>
+                </div>
+              </motion.button>
+            )}
+
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleDeleteForMe(selectedMsg)}
+              className="flex w-full items-center gap-3 rounded-2xl bg-white p-3.5 text-left shadow-sm hover:bg-page cursor-pointer"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <Trash2 size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-bold text-ink">Delete for Me</p>
+                <p className="text-[11.5px] text-sub">Remove message from this device only</p>
+              </div>
+            </motion.button>
+
+            {selectedMsg.fromMe && (
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleDeleteForEveryone(selectedMsg)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-rose-50/70 border border-rose-100 p-3.5 text-left shadow-sm hover:bg-rose-100/60 cursor-pointer"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                  <Trash2 size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-bold text-rose-600">Delete for Everyone</p>
+                  <p className="text-[11.5px] text-rose-500/80">Permanently delete for all participants</p>
+                </div>
+              </motion.button>
+            )}
+          </div>
+        )}
+      </Sheet>
+
+      {/* fullscreen photo viewer */}
+      <AnimatePresence>
+        {fullscreenPhoto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col bg-black/95 p-4"
+          >
+            <div className="flex items-center justify-between text-white pb-3 pt-2">
+              <p className="truncate text-[14px] font-semibold text-white/90">{fullscreenPhoto.name || "Photo"}</p>
+              <button
+                onClick={() => setFullscreenPhoto(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white cursor-pointer active:scale-95"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex flex-1 items-center justify-center overflow-hidden">
+              <motion.img
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+                src={fullscreenPhoto.url}
+                alt={fullscreenPhoto.name || "Full photo"}
+                className="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -82,6 +82,7 @@ interface Store {
   syncPresence: (userId: string) => Promise<void>;
   typing: Record<string, boolean>;
   unlockChat: (userId: string) => void;
+  deleteMessage: (chatId: string, messageId: string, forEveryone?: boolean) => Promise<void>;
   // jobs
   allJobs: Job[];
   syncJobs: () => Promise<void>;
@@ -181,6 +182,36 @@ const saveReadNotifId = (notifId: string) => {
     s.add(notifId);
     localStorage.setItem("read_notif_ids", JSON.stringify(Array.from(s)));
   } catch (e) {}
+};
+
+const getDeletedMsgIds = (): Set<string> => {
+  try {
+    return new Set<string>(JSON.parse(localStorage.getItem("deleted_msg_ids_for_me") || "[]"));
+  } catch (e) {
+    return new Set();
+  }
+};
+
+const saveDeletedMsgId = (msgId: string) => {
+  try {
+    const s = getDeletedMsgIds();
+    s.add(msgId);
+    localStorage.setItem("deleted_msg_ids_for_me", JSON.stringify(Array.from(s)));
+  } catch (e) {}
+};
+
+const getMyCurrentId = (meObj?: Person): string => {
+  const tokenUserId = api.getUserIdFromToken();
+  if (tokenUserId) return tokenUserId;
+  if (meObj?.id && meObj.id !== "me") return meObj.id;
+  try {
+    const raw = localStorage.getItem("user_me_profile_latest");
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p?.id && p.id !== "me") return p.id;
+    }
+  } catch (e) {}
+  return meObj?.id || "me";
 };
 
 const getSavedJobs = (): Job[] => {
@@ -616,11 +647,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           socket.on("newMessage", async (m: any) => {
             if (!m || !m.id) return;
+            const deletedMsgSet = getDeletedMsgIds();
+            if (deletedMsgSet.has(m.id)) return;
             if (knownMsgIds.current.has(m.id)) return;
             knownMsgIds.current.add(m.id);
 
-            const currentUserId = meRef.current?.id;
-            const isFromMe = m.senderId === currentUserId;
+            const myId = getMyCurrentId(meRef.current);
+            const isFromMe = m.senderId === myId || (myId !== "me" && m.senderId === myId) || m.senderId === meRef.current?.id || m.senderId === "me";
             const partnerId = isFromMe ? m.receiverId : m.senderId;
             let content = m.encryptedContent || "";
 
@@ -641,14 +674,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (
               content.startsWith("data:image/") ||
               ((content.startsWith("http://") || content.startsWith("https://")) &&
-                (content.includes(".png") || content.includes(".jpg") || content.includes(".jpeg") || content.includes(".webp")))
+                (content.includes(".png") ||
+                  content.includes(".jpg") ||
+                  content.includes(".jpeg") ||
+                  content.includes(".webp") ||
+                  content.includes("/chat/")))
             ) {
               kind = "image";
               meta = { name: "Photo", url: content };
-            } else if (content.startsWith("[Photo:") || content === "[Photo]") {
+            } else if (content.startsWith("[Photo:")) {
               kind = "image";
               const match = content.match(/\[Photo:\s*(.*?)\]/);
-              meta = { name: match ? match[1] : "Photo" };
+              const photoVal = match ? match[1] : "";
+              if (photoVal.startsWith("http://") || photoVal.startsWith("https://") || photoVal.startsWith("data:image/")) {
+                meta = { name: "Photo", url: photoVal };
+              } else {
+                meta = { name: photoVal || "Photo" };
+              }
             } else if (content.startsWith("[Document:")) {
               kind = "doc";
               const match = content.match(/\[Document:\s*(.*?)\]/);
@@ -658,7 +700,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const newMsg: ChatMsg = {
               id: m.id,
               fromMe: isFromMe,
-              text: content,
+              text: kind === "text" ? content : "",
               time: formatRelativeTime(m.createdAt),
               status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
               kind,
@@ -703,6 +745,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 ];
               }
             });
+          });
+
+          socket.on("messageDeleted", (data: { messageId: string; chatId?: string; forEveryone?: boolean }) => {
+            if (!data?.messageId) return;
+            saveDeletedMsgId(data.messageId);
+            setChats((prev) =>
+              prev.map((c) => ({
+                ...c,
+                msgs: c.msgs.filter((m) => m.id !== data.messageId),
+              }))
+            );
           });
 
           socket.on("messageStatusUpdate", (data: { messageId: string; status: string }) => {
@@ -946,17 +999,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await api.getMessages(userId);
         if (res.success && res.data?.items) {
-          const currentUserId = me.id;
+          const myId = getMyCurrentId(meRef.current);
           const myPrivateKeyJwkRaw = sessionStorage.getItem("e2e_private_key_jwk");
           const readMsgSet = getReadMsgIds();
+          const deletedMsgSet = getDeletedMsgIds();
           const chatId = `c_${userId}`;
           const isCurrentlyInThisChat = activeChatRef.current === chatId || activeChatRef.current === userId;
 
+          const nonDeletedItems = res.data.items.filter((m: any) => !deletedMsgSet.has(m.id));
+
           const formattedMsgs: ChatMsg[] = await Promise.all(
-            res.data.items.map(async (m: any) => {
+            nonDeletedItems.map(async (m: any) => {
               const d = new Date(m.createdAt);
               const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-              const isFromMe = m.senderId === currentUserId;
+              const isFromMe = m.senderId === myId || (myId !== "me" && m.senderId === myId) || m.senderId === meRef.current?.id || m.senderId === "me";
               let content = m.encryptedContent || "";
 
               const partnerId = isFromMe ? m.receiverId : m.senderId;
@@ -990,14 +1046,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   (content.includes(".png") ||
                     content.includes(".jpg") ||
                     content.includes(".jpeg") ||
-                    content.includes(".webp")))
+                    content.includes(".webp") ||
+                    content.includes("/chat/")))
               ) {
                 kind = "image";
                 meta = { name: "Photo", url: content };
-              } else if (content.startsWith("[Photo:") || content === "[Photo]") {
+              } else if (content.startsWith("[Photo:")) {
                 kind = "image";
                 const match = content.match(/\[Photo:\s*(.*?)\]/);
-                meta = { name: match ? match[1] : "Photo" };
+                const photoVal = match ? match[1] : "";
+                if (photoVal.startsWith("http://") || photoVal.startsWith("https://") || photoVal.startsWith("data:image/")) {
+                  meta = { name: "Photo", url: photoVal };
+                } else {
+                  meta = { name: photoVal || "Photo" };
+                }
               } else if (content.startsWith("[Document:")) {
                 kind = "doc";
                 const match = content.match(/\[Document:\s*(.*?)\]/);
@@ -1058,7 +1120,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {}
     },
-    [me.id]
+    []
   );
 
   const syncPresence = useCallback(async (userId: string) => {
@@ -1103,7 +1165,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setChats((cs) =>
         cs.map((c) =>
           c.id === chat.id
-            ? { ...c, msgs: [...c.msgs, { ...msg, id: tempId, time: timeStr, status: "sent" }] }
+            ? { ...c, msgs: [...c.msgs, { ...msg, id: tempId, time: timeStr, status: "sent", fromMe: true }] }
             : c
         )
       );
@@ -1111,12 +1173,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         let content = msg.text;
         if (msg.kind === "image") {
-          // If image has dataUrl under 500KB send dataUrl directly, else send [Photo: name]
-          if (msg.meta?.url && msg.meta.url.length < 500000) {
-            content = msg.meta.url;
-          } else {
-            content = `[Photo: ${msg.meta?.name || "Photo"}]`;
-          }
+          content = msg.meta?.url || (msg.meta?.name ? `[Photo: ${msg.meta.name}]` : "[Photo]");
         } else if (msg.kind === "doc") {
           content = `[Document: ${msg.meta?.name || "Document"}]`;
         }
@@ -1164,7 +1221,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                     c.id === chat.id
                       ? {
                           ...c,
-                          msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.message.id, status: "delivered" } : m)),
+                          msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.message.id, status: "delivered", fromMe: true } : m)),
                         }
                       : c
                   )
@@ -1172,7 +1229,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }
             }
           );
-          sendStopTyping(chat.userId);
+          sendStopTyping?.(chat.userId);
         } else {
           const res = await api.sendMessage(chat.userId, encryptedContent, nonce);
           if (res.success && res.data?.id) {
@@ -1181,7 +1238,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 c.id === chat.id
                   ? {
                       ...c,
-                      msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "delivered" } : m)),
+                      msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "delivered", fromMe: true } : m)),
                     }
                   : c
               )
@@ -1192,6 +1249,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [chats, sendStopTyping]
+  );
+
+  const deleteMessage = useCallback(
+    async (chatId: string, messageId: string, forEveryone = false) => {
+      // 1. Immediately delete locally for snappy experience
+      saveDeletedMsgId(messageId);
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === chatId || c.userId === chatId || c.id === `c_${chatId}`
+            ? {
+                ...c,
+                msgs: c.msgs.filter((m) => m.id !== messageId),
+              }
+            : c
+        )
+      );
+
+      // 2. Sync with backend & websocket
+      const chat = chatsRef.current.find((c) => c.id === chatId || c.userId === chatId || c.id === `c_${chatId}`);
+      const partnerId = chat?.userId || chatId.replace(/^c_/, "");
+      const socket = getSocket();
+
+      if (socket && socket.connected) {
+        socket.emit("deleteMessage", { messageId, partnerId, forEveryone });
+      } else {
+        api.deleteMessage(messageId, forEveryone).catch(() => {});
+      }
+
+      toast(forEveryone ? "Message deleted for everyone" : "Message deleted for you");
+    },
+    [toast]
   );
 
   const toggleUp = useCallback((threadId: string) => {
@@ -1605,7 +1693,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       phase, setPhase, role, setRole, me, setMe, completeRegister,
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
-      chats, activeChat, setActiveChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence, typing, unlockChat,
+      chats, activeChat, setActiveChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence, typing, unlockChat, deleteMessage,
       allJobs, syncJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
@@ -1617,7 +1705,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack,
       toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent,
       chats, activeChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence,
-      typing, unlockChat, allJobs, syncJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted,
+      typing, unlockChat, deleteMessage, allJobs, syncJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted,
       toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin,
       mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs,
       unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile,

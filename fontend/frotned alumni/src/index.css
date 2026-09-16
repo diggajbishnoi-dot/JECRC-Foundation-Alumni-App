@@ -36,6 +36,11 @@ body {
   color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  overflow-x: hidden;
+}
+
+p, h1, h2, h3, h4, h5, h6, span {
+  overflow-wrap: break-word;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -55,6 +60,8 @@ body {
     0 1px 2px rgba(15, 42, 94, 0.04),
     0 10px 24px -14px rgba(15, 42, 94, 0.14);
   box-sizing: border-box;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 .input {

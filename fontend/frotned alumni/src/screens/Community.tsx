@@ -209,15 +209,15 @@ export function ThreadDetailScreen({ id }: { id: string }) {
             <Tag tone="gold">{t.category}</Tag>
             {isOwner && <span className="rounded-md bg-navy/10 px-2 py-0.5 text-[11px] font-bold text-navy">Your Post</span>}
           </div>
-          <h2 className="mt-3 font-display text-[19px] font-bold leading-snug text-ink">{t.title}</h2>
+          <h2 className="mt-3 font-display text-[19px] font-bold leading-snug text-ink break-words break-all">{t.title}</h2>
           <div className="mt-3 flex items-center gap-2.5">
             <InitialsAvatar name={t.author} size={34} />
-            <div>
-              <p className="text-[13px] font-bold text-ink">{t.author}</p>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="text-[13px] font-bold text-ink truncate">{t.author}</p>
               <p className="text-[11px] text-sub">{t.authorRole === "alumni" ? "Alumni" : "Student"} · {t.ago} ago</p>
             </div>
           </div>
-          <p className="mt-4 text-[14px] leading-relaxed text-ink/85">{t.body}</p>
+          <p className="mt-4 text-[14px] leading-relaxed text-ink/85 break-words break-all whitespace-pre-wrap">{t.body}</p>
           <div className="mt-4 border-t border-line pt-3.5">
             <UpvoteButton active={up} count={t.upvotes + (up ? 1 : 0)} onClick={() => toggleUp(t.id)} />
           </div>
@@ -229,13 +229,13 @@ export function ThreadDetailScreen({ id }: { id: string }) {
             {t.replies.map((r) => {
               const isReplyOwner = r.mine || (r.authorId && r.authorId === me.id) || r.author === me.name || r.author === "You";
               return (
-                <motion.div key={r.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card flex gap-3 p-3.5">
+                <motion.div key={r.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card flex gap-3 p-3.5 overflow-hidden w-full max-w-full">
                   <InitialsAvatar name={r.author} size={34} />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 overflow-hidden">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-[13px] font-bold text-ink">{r.author}</p>
-                        <span className="text-[10.5px] text-sub/60">{r.ago}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-[13px] font-bold text-ink truncate">{r.author}</p>
+                        <span className="text-[10.5px] text-sub/60 shrink-0">{r.ago}</span>
                       </div>
                       {isReplyOwner && (
                         <button
@@ -245,13 +245,13 @@ export function ThreadDetailScreen({ id }: { id: string }) {
                             }
                           }}
                           title="Delete reply"
-                          className="btn-press p-1 text-sub/60 hover:text-rose cursor-pointer transition-colors"
+                          className="btn-press p-1 text-sub/60 hover:text-rose cursor-pointer transition-colors shrink-0"
                         >
                           <Trash2 size={13} />
                         </button>
                       )}
                     </div>
-                    <p className="mt-1 text-[13px] leading-relaxed text-ink/85">{r.text}</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-ink/85 break-words break-all whitespace-pre-wrap">{r.text}</p>
                   </div>
                 </motion.div>
               );

@@ -47,6 +47,18 @@ class ApiService {
     return this.accessToken;
   }
 
+  getUserIdFromToken(): string | null {
+    if (!this.accessToken) return null;
+    try {
+      const parts = this.accessToken.split('.');
+      if (parts.length >= 2) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.sub || payload.id || payload.userId || null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   getRefreshToken(): string | null {
     return this.refreshToken;
   }
@@ -497,6 +509,13 @@ class ApiService {
   async markMessagesRead(userId: string) {
     return await this.request(`/messages/${userId}/read`, {
       method: 'PATCH',
+    });
+  }
+
+  async deleteMessage(messageId: string, forEveryone = false) {
+    return await this.request<{ success: boolean; messageId: string; forEveryone: boolean }>(`/messages/${messageId}/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ forEveryone }),
     });
   }
 

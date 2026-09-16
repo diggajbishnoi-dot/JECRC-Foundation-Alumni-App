@@ -267,6 +267,40 @@ export class MessagesGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   }
 
   /**
+   * Real-time delete message event
+   */
+  @SubscribeMessage('deleteMessage')
+  async handleDeleteMessage(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { messageId: string; partnerId: string; forEveryone?: boolean },
+  ) {
+    if (!client.userId || !data?.messageId) {
+      return { success: false, error: 'Invalid request' };
+    }
+
+    try {
+      const res = await this.messagesService.deleteMessage(
+        client.userId,
+        data.messageId,
+        data.forEveryone ?? false,
+      );
+
+      if (res && res.forEveryone && data.partnerId) {
+        // Broadcast to recipient that message was deleted
+        this.server.to(`user:${data.partnerId}`).emit('messageDeleted', {
+          messageId: data.messageId,
+          chatId: `c_${client.userId}`,
+          forEveryone: true,
+        });
+      }
+
+      return { success: true, messageId: data.messageId, forEveryone: data.forEveryone };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Broadcast real-time connection request to receiver
    */
   notifyConnectionRequest(receiverId: string, payload: any) {

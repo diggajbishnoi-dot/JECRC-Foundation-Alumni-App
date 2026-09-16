@@ -81,4 +81,17 @@ export class MessagesController {
   ) {
     return await this.messagesService.markConversationRead(currentUserId, otherUserId);
   }
+
+  @Post(':id/delete')
+  @ApiOperation({
+    summary: 'Delete a message',
+    description: 'Delete a message for me or for everyone (if sender).',
+  })
+  async deleteMessage(
+    @CurrentUser('id') currentUserId: string,
+    @Param('id') messageId: string,
+    @Body() body?: { forEveryone?: boolean },
+  ) {
+    return await this.messagesService.deleteMessage(currentUserId, messageId, body?.forEveryone ?? false);
+  }
 }

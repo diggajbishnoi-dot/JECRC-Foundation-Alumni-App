@@ -575,12 +575,8 @@ export default function AuthFlow() {
                   <div className="relative flex items-center">
                     <input
                       type="text"
-                      className="input pl-10 pr-24 text-[14px]"
-                      placeholder={
-                        claimRole === "alumni"
-                          ? "e.g. rohit.sharma@jecrc.ac.in"
-                          : "e.g. ananya.gupta@jecrc.ac.in"
-                      }
+                      className="input pr-24 text-[14px]"
+                      placeholder="e.g. name@jecrc.ac.in or Roll No."
                       value={claimQuery}
                       onChange={(e) => {
                         setClaimQuery(e.target.value);
@@ -594,32 +590,17 @@ export default function AuthFlow() {
                         }
                       }}
                     />
-                    <Search size={16} className="absolute left-3 text-sub/60" />
                     <button
                       type="button"
                       disabled={claimStatus === "searching"}
                       onClick={handleClaimLookup}
-                      className="btn-press absolute right-1.5 rounded-lg bg-navy px-3 py-1.5 text-[12px] font-bold text-white shadow-sm"
+                      className="btn-press absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-navy px-3.5 py-2 text-[12px] font-bold text-white shadow-sm cursor-pointer"
                     >
                       {claimStatus === "searching" ? "..." : "Search"}
                     </button>
                   </div>
                   {errors.claimQuery && <p className="mt-1 text-xs font-medium text-rose">{errors.claimQuery}</p>}
                 </div>
-
-                {/* Quick Hint */}
-                {claimStatus === "idle" && (
-                  <div className="rounded-xl border border-line bg-page/70 p-3.5 text-[12.5px] text-sub flex items-start gap-2.5">
-                    <Sparkles size={16} className="text-gold-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-ink">Demo test accounts ready in database:</span>
-                      <div className="mt-1 space-y-0.5 text-[11.5px] text-sub/90">
-                        <div>&bull; Alumni: <code className="text-navy font-mono font-bold">rohit.sharma@jecrc.ac.in</code></div>
-                        <div>&bull; Student: <code className="text-navy font-mono font-bold">ananya.gupta@jecrc.ac.in</code></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* MATCH FOUND: Unclaimed */}
                 {claimStatus === "found" && claimUser && (
@@ -1100,13 +1081,16 @@ export default function AuthFlow() {
                         </select>
                       </div>
                       <div>
-                        <span className="label">Passout Year</span>
+                        <span className="label">Passout Year (Batch)</span>
                         <select
                           className={selectStyle}
                           value={reg.passout}
-                          onChange={(e) => up("passout", e.target.value)}
+                          onChange={(e) => {
+                            up("passout", e.target.value);
+                            up("batch", e.target.value);
+                          }}
                         >
-                          {["2026", "2027", "2028", "2029", "2030"].map((y) => (
+                          {["2024", "2025", "2026", "2027", "2028", "2029", "2030"].map((y) => (
                             <option key={y}>{y}</option>
                           ))}
                         </select>
@@ -1127,44 +1111,22 @@ export default function AuthFlow() {
                   </>
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <span className="label">Batch (Joining Year)</span>
-                        <select
-                          className={selectStyle}
-                          value={reg.batch}
-                          onChange={(e) => {
-                            const newBatch = e.target.value;
-                            const newPassout = (parseInt(newBatch, 10) + 4).toString();
-                            up("batch", newBatch);
-                            up("passout", newPassout);
-                          }}
-                        >
-                          {Array.from({ length: 27 }, (_, i) => `${2026 - i}`).map((y) => (
-                            <option key={y} value={y}>{y}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <span className="label">Passout Year</span>
-                        <select
-                          className={selectStyle}
-                          value={reg.passout || (parseInt(reg.batch || "2020", 10) + 4).toString()}
-                          onChange={(e) => {
-                            const newPassout = e.target.value;
-                            const passYear = parseInt(newPassout, 10);
-                            const currentBatch = parseInt(reg.batch || "2020", 10);
-                            if (passYear - currentBatch < 4) {
-                              up("batch", (passYear - 4).toString());
-                            }
-                            up("passout", newPassout);
-                          }}
-                        >
-                          {Array.from({ length: 27 }, (_, i) => `${2030 - i}`).map((y) => (
-                            <option key={y} value={y}>{y}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div>
+                      <span className="label">Passout / Graduation Batch</span>
+                      <select
+                        className={selectStyle}
+                        value={reg.batch}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          up("batch", val);
+                          up("passout", val);
+                        }}
+                      >
+                        {Array.from({ length: 23 }, (_, i) => `${2004 + i}`).map((y) => (
+                          <option key={y} value={y}>Batch {y} (Passout {y})</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-sub/70">Your graduating year from JECRC Foundation.</p>
                     </div>
                     <Field
                       label="Current Company"
