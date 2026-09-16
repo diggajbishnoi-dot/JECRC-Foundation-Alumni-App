@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
   CheckCircle2,
-  Search,
   Sparkles,
   UserCheck,
   AlertCircle,

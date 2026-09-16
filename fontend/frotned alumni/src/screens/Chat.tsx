@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Lock, ShieldCheck, Camera, Image as ImageIcon, FileText, Send,
+  Search, ShieldCheck, Camera, Image as ImageIcon, FileText, Send,
   Check, CheckCheck, ChevronLeft, Plus, MessageCircle, Download, Trash2, Copy, Eye, X,
 } from "lucide-react";
 import { useStore, personById, ChatMsg } from "../state/store";

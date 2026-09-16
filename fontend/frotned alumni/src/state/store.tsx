@@ -152,6 +152,17 @@ const nowTime = () => {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 };
 
+const formatRelativeTime = (dateStr?: string | Date): string => {
+  if (!dateStr) return nowTime();
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return nowTime();
+    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+  } catch (_e) {
+    return nowTime();
+  }
+};
+
 const getReadMsgIds = (): Set<string> => {
   try {
     return new Set<string>(JSON.parse(localStorage.getItem("read_msg_ids") || "[]"));
@@ -579,7 +590,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 0. Auto-create client E2E keypair if none exists
     const existingPub = sessionStorage.getItem("e2e_public_key_hex");
     if (!existingPub) {
-      generateClientKeyPair().then((keys) => {
+      generateE2EKeyPair().then((keys) => {
         sessionStorage.setItem("e2e_private_key_jwk", JSON.stringify(keys.privateKeyJwk));
         sessionStorage.setItem("e2e_public_key_hex", keys.publicKeyRawHex);
         if (api.getToken()) {
@@ -850,6 +861,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     };
     heartbeat();
+    const heartbeatTimer = setInterval(heartbeat, 30000);
     const syncTimer = setInterval(() => {
       if (api.getToken()) {
         syncConnections();
@@ -1566,7 +1578,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (j.id === jobId) {
               return {
                 ...j,
-                applicants: res.data.totalApplicants,
+                applicants: res.data?.totalApplicants ?? mappedList.length,
                 applicantList: mappedList,
               };
             }
