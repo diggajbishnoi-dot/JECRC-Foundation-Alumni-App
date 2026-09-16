@@ -620,7 +620,81 @@ class ApiService {
     if (filters?.batch) params.append('batch', filters.batch);
     if (filters?.company) params.append('company', filters.company);
     if (filters?.city) params.append('city', filters.city);
-    return await this.request(`/users/search?${params.toString()}`);
+
+    const res = await this.request<{ items: any[]; total: number }>(`/users/search?${params.toString()}`);
+    if (res.success && Array.isArray(res.data?.items) && res.data.items.length > 0) {
+      return res;
+    }
+
+    // Fallback/Merge with real locally registered accounts
+    const localAccounts = this.getLocalAccounts();
+    const registeredList = Object.values(localAccounts).map((acc: any) => {
+      const isStudent = acc.role === 'STUDENT';
+      const uRole = isStudent ? 'STUDENT' : 'ALUMNI';
+      return {
+        id: acc.id || `usr_${acc.email || Date.now()}`,
+        name: acc.name || 'JECRC Member',
+        email: acc.email,
+        mobile: acc.mobile,
+        role: uRole,
+        bio: acc.about || 'JECRC Network Member',
+        city: acc.city || 'Jaipur',
+        alumniDetails: !isStudent ? {
+          branch: acc.branch || acc.alumniBranch || 'CSE',
+          batch: acc.batch || (acc.passoutYear ? String(acc.passoutYear) : '2020'),
+          currentCompany: acc.currentCompany || acc.company,
+          designation: acc.designation || 'Alumnus',
+        } : undefined,
+        studentDetails: isStudent ? {
+          branch: acc.branch || 'CSE',
+          currentYear: acc.currentYear || 3,
+          expectedPassoutYear: acc.expectedPassoutYear || (acc.batch ? Number(acc.batch) : 2026),
+        } : undefined,
+      };
+    });
+
+    let filtered = registeredList;
+    if (query?.trim()) {
+      const q = query.trim().toLowerCase();
+      filtered = filtered.filter(u =>
+        u.name.toLowerCase().includes(q) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.alumniDetails?.currentCompany && u.alumniDetails.currentCompany.toLowerCase().includes(q)) ||
+        (u.alumniDetails?.branch && u.alumniDetails.branch.toLowerCase().includes(q)) ||
+        (u.studentDetails?.branch && u.studentDetails.branch.toLowerCase().includes(q))
+      );
+    }
+    if (role) {
+      filtered = filtered.filter(u => u.role.toLowerCase() === role.toLowerCase());
+    }
+    if (filters?.branch) {
+      filtered = filtered.filter(u =>
+        u.alumniDetails?.branch?.toLowerCase() === filters.branch?.toLowerCase() ||
+        u.studentDetails?.branch?.toLowerCase() === filters.branch?.toLowerCase()
+      );
+    }
+    if (filters?.batch) {
+      filtered = filtered.filter(u =>
+        u.alumniDetails?.batch === filters.batch ||
+        String(u.studentDetails?.expectedPassoutYear) === filters.batch
+      );
+    }
+    if (filters?.company) {
+      filtered = filtered.filter(u =>
+        u.alumniDetails?.currentCompany?.toLowerCase().includes(filters.company!.toLowerCase())
+      );
+    }
+    if (filters?.city) {
+      filtered = filtered.filter(u => u.city?.toLowerCase().includes(filters.city!.toLowerCase()));
+    }
+
+    return {
+      success: true,
+      data: {
+        items: filtered,
+        total: filtered.length,
+      },
+    };
   }
 
   async deleteAccount() {

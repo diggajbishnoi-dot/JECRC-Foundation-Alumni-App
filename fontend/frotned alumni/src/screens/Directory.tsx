@@ -17,7 +17,7 @@ import {
   Mail,
 } from "lucide-react";
 import { useStore, personById, registerDynamicUser } from "../state/store";
-import { Person } from "../data/mock";
+import { Person, people } from "../data/mock";
 import { api } from "../services/api";
 import { Btn, EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Tag } from "../components/ui";
 import { cn } from "../utils/cn";
@@ -38,13 +38,35 @@ export function DirectoryScreen() {
     return () => clearTimeout(t);
   }, [query]);
 
-  // Fetch real users from backend database (live search)
+  // Fetch real users from backend database (live search) + fallback/merge with verified alumni
   useEffect(() => {
     setLoading(true);
+
+    const filterMockPeople = (list: Person[], q: string, f: typeof filters) => {
+      let res = list;
+      if (q.trim()) {
+        const lower = q.toLowerCase().trim();
+        res = res.filter((p) =>
+          p.name.toLowerCase().includes(lower) ||
+          (p.company && p.company.toLowerCase().includes(lower)) ||
+          p.headline.toLowerCase().includes(lower) ||
+          p.branch.toLowerCase().includes(lower) ||
+          p.batch.includes(lower) ||
+          p.city.toLowerCase().includes(lower)
+        );
+      }
+      if (f.batch) res = res.filter((p) => p.batch === f.batch);
+      if (f.branch) res = res.filter((p) => p.branch.toLowerCase() === f.branch?.toLowerCase());
+      if (f.company) res = res.filter((p) => p.company?.toLowerCase() === f.company?.toLowerCase());
+      if (f.city) res = res.filter((p) => p.city.toLowerCase() === f.city?.toLowerCase());
+      return res;
+    };
+
     api.searchUsers(debounced, undefined, filters).then((res) => {
       setLoading(false);
-      if (res.success && Array.isArray(res.data?.items)) {
-        const mapped: Person[] = res.data.items.map((u: any) => {
+      let backendList: Person[] = [];
+      if (res.success && Array.isArray(res.data?.items) && res.data.items.length > 0) {
+        backendList = res.data.items.map((u: any) => {
           const mappedPerson: Person = {
             id: u.id,
             name: u.name,
@@ -63,10 +85,23 @@ export function DirectoryScreen() {
           registerDynamicUser(mappedPerson);
           return mappedPerson;
         });
-        setBackendUsers(mapped);
       }
+
+      // Merge backend items with verified institutional mock people
+      const combined = [...backendList];
+      const localFiltered = filterMockPeople(people, debounced, filters);
+      localFiltered.forEach((p) => {
+        if (!combined.some((b) => b.id === p.id || (b.name.toLowerCase() === p.name.toLowerCase() && b.branch === p.branch))) {
+          combined.push(p);
+          registerDynamicUser(p);
+        }
+      });
+
+      setBackendUsers(combined);
     }).catch(() => {
       setLoading(false);
+      const localFiltered = filterMockPeople(people, debounced, filters);
+      setBackendUsers(localFiltered);
     });
   }, [debounced, filters]);
 
@@ -454,7 +489,7 @@ export function ConnectButton({
 
 /* ============== PROFILE ============== */
 export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolean }) {
-  const { pop, push, me, updateProfile, toast, conn, requestConnect, requestMentor, mentorReq, chats, goTab, role } = useStore();
+  const { pop, push, me, updateProfile, toast, conn, requestConnect, requestMentor, mentorReq, chats, goTab, role, allJobs, allThreads, joinedGroups } = useStore();
   const isMe = !id || id === "me" || id === me.id;
   const p: Person = isMe ? me : personById(id);
   const [tabIdx, setTabIdx] = useState(0);
@@ -716,31 +751,95 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                 </div>
               )}
               {tabIdx === 1 && (
-                <EmptyState
-                  icon={<BriefcaseBusiness size={32} />}
-                  title={isMe ? "No posts yet" : "Nothing posted yet"}
-                  copy={
-                    isMe
-                      ? "Share a job opening or a discussion thread with the community."
-                      : "When they post jobs or threads, you'll see them here."
-                  }
-                  cta={isMe ? "Start a discussion" : undefined}
-                  onCta={isMe ? () => push({ name: "discussions" }) : undefined}
-                />
+                <div>
+                  {(() => {
+                    const userJobs = allJobs.filter((j) => (isMe && j.mine) || (p.name && j.postedBy === p.name) || (p.id && j.posterId === p.id));
+                    const userThreads = allThreads.filter((t) => (isMe && t.mine) || (p.name && t.author === p.name) || (p.id && t.authorId === p.id));
+                    const totalPosts = userJobs.length + userThreads.length;
+
+                    if (totalPosts === 0) {
+                      return (
+                        <EmptyState
+                          icon={<BriefcaseBusiness size={32} />}
+                          title={isMe ? "No posts yet" : "Nothing posted yet"}
+                          copy={
+                            isMe
+                              ? "Share a job opening or a discussion thread with the community."
+                              : "When they post jobs or threads, you'll see them here."
+                          }
+                          cta={isMe ? "Start a discussion" : undefined}
+                          onCta={isMe ? () => push({ name: "discussions" }) : undefined}
+                        />
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        {userJobs.map((j) => (
+                          <div
+                            key={j.id}
+                            className="card p-4 cursor-pointer hover:border-navy-400/50 transition-colors"
+                            onClick={() => push({ name: "jobDetail", id: j.id })}
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] font-bold text-navy uppercase tracking-wide bg-navy/10 px-2 py-0.5 rounded-full">
+                                Job Opening
+                              </span>
+                              <span className="text-[11px] text-sub">{j.postedAgo}</span>
+                            </div>
+                            <h3 className="text-[15px] font-bold text-ink">{j.title}</h3>
+                            <p className="text-[13px] text-sub">{j.company} · {j.location} · <strong className="text-navy">{j.pay}</strong></p>
+                          </div>
+                        ))}
+                        {userThreads.map((t) => (
+                          <div
+                            key={t.id}
+                            className="card p-4 cursor-pointer hover:border-peri/50 transition-colors"
+                            onClick={() => push({ name: "threadDetail", id: t.id })}
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] font-bold text-peri uppercase tracking-wide bg-peri/10 px-2 py-0.5 rounded-full">
+                                {t.category} Discussion
+                              </span>
+                              <span className="text-[11px] text-sub">{t.ago}</span>
+                            </div>
+                            <h3 className="text-[15px] font-bold text-ink">{t.title}</h3>
+                            <p className="text-[13px] text-sub line-clamp-2 mt-1">{t.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
               {tabIdx === 2 && (
                 <div className="space-y-3">
-                  {[
-                    "Upvoted “Referral playbook for SDE-1 roles”",
-                    "Joined group “Bengaluru Chapter”",
-                    "Commented in “Alumni Meet — volunteers”",
-                  ].map((a, i) => (
-                    <div key={i} className="card flex items-center gap-3 p-3.5">
-                      <span className="h-2 w-2 rounded-full bg-gold" />
-                      <p className="flex-1 text-[13px] font-medium text-ink">{a}</p>
-                      <span className="text-[11px] text-sub/60">{i + 1}d</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    const userJobs = allJobs.filter((j) => (isMe && j.mine) || (p.name && j.postedBy === p.name) || (p.id && j.posterId === p.id));
+                    const userThreads = allThreads.filter((t) => (isMe && t.mine) || (p.name && t.author === p.name) || (p.id && t.authorId === p.id));
+
+                    const activities: { text: string; time: string }[] = [
+                      { text: `Verified member of JECRC Foundation Alumni & Student Network`, time: "Active" },
+                      { text: `Connected to ${p.branch || "Engineering"} Department Community`, time: "Active" },
+                      { text: `Joined Class of ${p.batch || "2024"} Community`, time: "Active" },
+                    ];
+
+                    userJobs.forEach((j) => {
+                      activities.unshift({ text: `Posted job opening: "${j.title}" at ${j.company}`, time: j.postedAgo });
+                    });
+
+                    userThreads.forEach((t) => {
+                      activities.unshift({ text: `Started discussion: "${t.title}" in ${t.category}`, time: t.ago });
+                    });
+
+                    return activities.map((a, i) => (
+                      <div key={i} className="card flex items-center gap-3 p-3.5">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-navy" />
+                        <p className="flex-1 text-[13px] font-medium text-ink leading-snug">{a.text}</p>
+                        <span className="text-[11px] font-bold text-sub shrink-0">{a.time}</span>
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
             </motion.div>

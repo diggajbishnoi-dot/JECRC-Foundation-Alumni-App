@@ -106,7 +106,7 @@ export const people: Person[] = [];
 
 export const meAlumni: Person = {
   id: "me",
-  name: "New Member",
+  name: "JECRC Member",
   role: "alumni",
   headline: "JECRC Network Member",
   branch: "CSE",
