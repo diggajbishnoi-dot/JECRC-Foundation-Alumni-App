@@ -43,14 +43,14 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) {
         return this.props.fallback(this.reset);
       }
-      return <DefaultFallback onReset={this.reset} />;
+      return <DefaultFallback onReset={this.reset} error={this.state._devError} />;
     }
     return this.props.children;
   }
 }
 
 /* ---------- default fallback UI ---------- */
-function DefaultFallback({ onReset }: { onReset: () => void }) {
+function DefaultFallback({ onReset, error }: { onReset: () => void; error?: Error }) {
   const handleClearCache = () => {
     try {
       localStorage.clear();
@@ -112,12 +112,42 @@ function DefaultFallback({ onReset }: { onReset: () => void }) {
           margin: 0,
           color: "#94a3b8",
           fontSize: "0.95rem",
-          maxWidth: 380,
+          maxWidth: 420,
           lineHeight: 1.6,
         }}
       >
         An unexpected error occurred. Click below to reload or reset session cache to continue.
       </p>
+
+      {/* Optional Error diagnostics banner */}
+      {error && (
+        <div
+          style={{
+            maxWidth: 460,
+            width: "100%",
+            textAlign: "left",
+            background: "rgba(0,0,0,0.4)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            borderRadius: "0.75rem",
+            padding: "0.85rem",
+            fontSize: "0.8rem",
+            color: "#fca5a5",
+            fontFamily: "monospace",
+            wordBreak: "break-word",
+            maxHeight: 180,
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "0.35rem" }}>
+            {error.name}: {error.message}
+          </div>
+          {error.stack && (
+            <pre style={{ margin: 0, fontSize: "0.72rem", color: "#94a3b8", whiteSpace: "pre-wrap" }}>
+              {error.stack.split("\n").slice(0, 5).join("\n")}
+            </pre>
+          )}
+        </div>
+      )}
 
       {/* Actions */}
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
@@ -125,7 +155,7 @@ function DefaultFallback({ onReset }: { onReset: () => void }) {
           id="error-boundary-reload-btn"
           onClick={() => window.location.reload()}
           style={{
-            padding: "0.6rem 1.4rem",
+            padding: "0.65rem 1.4rem",
             borderRadius: "2rem",
             border: "none",
             background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
@@ -143,7 +173,7 @@ function DefaultFallback({ onReset }: { onReset: () => void }) {
           id="error-boundary-clear-btn"
           onClick={handleClearCache}
           style={{
-            padding: "0.6rem 1.4rem",
+            padding: "0.65rem 1.4rem",
             borderRadius: "2rem",
             border: "1.5px solid rgba(244,63,94,0.4)",
             background: "rgba(244,63,94,0.1)",
@@ -160,7 +190,7 @@ function DefaultFallback({ onReset }: { onReset: () => void }) {
           id="error-boundary-retry-btn"
           onClick={onReset}
           style={{
-            padding: "0.6rem 1.4rem",
+            padding: "0.65rem 1.4rem",
             borderRadius: "2rem",
             border: "1.5px solid rgba(148,163,184,0.25)",
             background: "transparent",

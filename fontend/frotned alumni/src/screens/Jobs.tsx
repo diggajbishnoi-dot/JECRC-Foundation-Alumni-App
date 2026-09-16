@@ -387,8 +387,8 @@ export function JobDetailScreen({ id }: { id: string }) {
           <div className={`mt-4 grid ${isPoster ? 'grid-cols-3' : 'grid-cols-2'} gap-2.5`}>
             {[
               ...(isPoster ? [{ icon: Users, l: "Applicants", v: `${j.applicants || applicantList.length || 0}` }] : []),
-              { icon: CalendarDays, l: "Deadline", v: j.deadline.split(" ").slice(0, 2).join(" ") },
-              { icon: Clock, l: "Posted", v: `${j.postedAgo}` },
+              { icon: CalendarDays, l: "Deadline", v: (j.deadline || "Rolling").split(" ").slice(0, 2).join(" ") },
+              { icon: Clock, l: "Posted", v: `${j.postedAgo || "Recently"}` },
             ].map((m) => (
               <div key={m.l} className="rounded-xl bg-page p-2.5 sm:p-3 text-center border border-line/60 overflow-hidden">
                 <m.icon size={15} className="mx-auto text-navy" />
@@ -405,7 +405,7 @@ export function JobDetailScreen({ id }: { id: string }) {
           <p className="mt-2 text-[13.5px] leading-relaxed text-sub break-words break-all whitespace-pre-wrap">{j.desc}</p>
           <h3 className="mt-5 font-display text-[16px] font-semibold text-ink">Required skills</h3>
           <div className="mt-2.5 flex flex-wrap gap-2">
-            {j.skills.map((s) => <Tag key={s} tone="peri" className="max-w-full break-words">{s}</Tag>)}
+            {(j.skills || []).map((s) => <Tag key={s} tone="peri" className="max-w-full break-words">{s}</Tag>)}
           </div>
           <div className="mt-5 rounded-xl bg-navy-50 p-3.5 border border-navy/10 overflow-hidden">
             <p className="text-[12.5px] font-semibold text-navy break-words">Posted by {j.postedBy}</p>

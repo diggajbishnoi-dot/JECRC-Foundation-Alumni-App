@@ -797,7 +797,7 @@ export function MentorshipScreen() {
         )}
       </div>
 
-      <Sheet open={!!sheetFor} onClose={() => setSheetFor(null)} title={sheetFor ? `Request ${personById(sheetFor).name.split(" ")[0]}` : ""}>
+      <Sheet open={!!sheetFor} onClose={() => setSheetFor(null)} title={sheetFor ? `Request ${(personById(sheetFor)?.name || "Mentor").split(" ")[0]}` : ""}>
         <p className="text-[13px] leading-relaxed text-sub">
           A short note massively improves accept rates. What do you want to work on together?
         </p>

@@ -72,7 +72,7 @@ export function ChatListScreen() {
     };
   }, [chats.length, syncMessages, syncPresence]);
 
-  const filtered = chats.filter((c) => personById(c.userId).name.toLowerCase().includes(q.toLowerCase()));
+  const filtered = chats.filter((c) => (personById(c.userId)?.name || "").toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar pb-32">

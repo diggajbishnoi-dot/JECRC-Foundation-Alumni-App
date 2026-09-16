@@ -88,10 +88,11 @@ export function Field({
 
 /* ---------------- Capitalize Utility ---------------- */
 export function capitalizeName(str?: string): string {
-  if (!str) return "";
+  if (!str || typeof str !== "string") return "";
   return str
     .trim()
     .split(/\s+/)
+    .filter(Boolean)
     .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : ""))
     .join(" ");
 }
@@ -104,11 +105,13 @@ const gradients = [
 ];
 export function InitialsAvatar({
   name, size = 48, layoutId, className, rounded = "rounded-full",
-}: { name: string; size?: number; layoutId?: string; className?: string; rounded?: string }) {
-  const safeName = capitalizeName(name || "User");
-  const idx = (safeName.charCodeAt(0) + (safeName.charCodeAt(safeName.length - 1) || 0)) % gradients.length;
-  const [a, b] = gradients[idx];
-  const initials = safeName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}: { name?: string; size?: number; layoutId?: string; className?: string; rounded?: string }) {
+  const safeName = capitalizeName(name && typeof name === "string" && name.trim() ? name : "User") || "User";
+  const charCode0 = safeName.charCodeAt(0) || 65;
+  const charCodeLast = safeName.charCodeAt(safeName.length - 1) || 65;
+  const idx = Math.abs(charCode0 + charCodeLast) % gradients.length;
+  const [a, b] = (gradients[idx] && gradients[idx].length >= 2) ? gradients[idx] : gradients[0];
+  const initials = (safeName.split(" ").map((w) => w ? w[0] : "").filter(Boolean).slice(0, 2).join("").toUpperCase()) || "U";
   return (
     <motion.div
       layoutId={layoutId}

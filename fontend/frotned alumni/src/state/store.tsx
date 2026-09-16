@@ -726,7 +726,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 socket.emit("messageRead", { messageId: m.id });
               } else {
                 const latestIncomingText = kind === "image" ? "📷 Sent a photo" : kind === "doc" ? `📄 ${meta?.name || "Document"}` : content;
-                toast(`💬 ${partnerPerson.name}: ${latestIncomingText}`);
+                toast(`💬 ${partnerPerson?.name || "Member"}: ${latestIncomingText}`);
               }
             }
 
@@ -949,7 +949,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 read: true,
                 type: "connection_accepted",
                 title: "Connected",
-                body: `You are now connected with ${personById(userId).name}. Chat is unlocked.`,
+                body: `You are now connected with ${personById(userId)?.name || "Member"}. Chat is unlocked.`,
               }
             : n
         )
