@@ -15,8 +15,8 @@ export function connectSocket(token: string): Socket | null {
     socket = null;
   }
 
-  const rawUrl = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'http://localhost:3000';
-  const baseUrl = rawUrl.replace(/\/$/, '');
+  const rawUrl = (typeof process !== 'undefined' && process.env?.VITE_API_URL) || 'https://jecrc-foundation-alumni-backend.onrender.com';
+  const baseUrl = rawUrl.replace(/\/api\/v1$/, '').replace(/\/$/, '');
   const socketUrl = `${baseUrl}/chat`;
 
   currentToken = token;

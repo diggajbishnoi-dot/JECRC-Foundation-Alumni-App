@@ -49,41 +49,10 @@ async function bootstrap() {
   // logged at startup so the problem is immediately visible.
   // ─────────────────────────────────────────────────────────────────────────
   const rawCorsOrigin = configService.get<string>('CORS_ORIGIN', '*');
-  const isWildcard = rawCorsOrigin.trim() === '*';
-
-  let corsOriginOption: boolean | string | string[] | ((origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => void);
-
-  if (isWildcard && isProduction) {
-    // Misconfigured production — block all cross-origin requests and warn loudly
-    logger.error(
-      'CORS_ORIGIN is not configured for production. ' +
-      'All cross-origin requests will be BLOCKED. ' +
-      'Set CORS_ORIGIN=https://<your-frontend-domain> in your production environment.',
-    );
-    corsOriginOption = false; // block every cross-origin request
-  } else if (isWildcard) {
-    // Development convenience — allow all origins
-    corsOriginOption = true;
-  } else {
-    // Explicitly configured origins — allow only the listed ones
-    const allowedOrigins = rawCorsOrigin.split(',').map((o) => o.trim()).filter(Boolean);
-    corsOriginOption = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      // Non-browser clients (mobile app, Postman, server-to-server) send no Origin header
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Origin '${origin}' is not allowed by CORS policy`));
-      }
-    };
-    logger.log(`HTTP CORS: allowing origins [${allowedOrigins.join(', ')}]`);
-  }
+  const isWildcard = !rawCorsOrigin || rawCorsOrigin.trim() === '*';
 
   app.enableCors({
-    origin: corsOriginOption,
+    origin: isWildcard ? true : rawCorsOrigin.split(',').map((o) => o.trim()).filter(Boolean),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

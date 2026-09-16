@@ -1,6 +1,7 @@
 // API Client for Alumni App Backend Integration
 
-const API_BASE = ((import.meta as any).env?.VITE_API_URL as string)?.replace(/\/$/, '') || '/api/v1';
+const RAW_API_URL = ((import.meta as any).env?.VITE_API_URL as string)?.replace(/\/$/, '') || 'https://jecrc-foundation-alumni-backend.onrender.com';
+const API_BASE = RAW_API_URL.endsWith('/api/v1') ? RAW_API_URL : `${RAW_API_URL}/api/v1`;
 
 class ApiService {
   private accessToken: string | null = null;
