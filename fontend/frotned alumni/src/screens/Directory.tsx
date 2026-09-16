@@ -489,7 +489,7 @@ export function ConnectButton({
 
 /* ============== PROFILE ============== */
 export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolean }) {
-  const { pop, push, me, updateProfile, toast, conn, requestConnect, requestMentor, mentorReq, chats, goTab, role, allJobs, allThreads, joinedGroups } = useStore();
+  const { pop, push, me, updateProfile, toast, conn, requestConnect, requestMentor, mentorReq, chats, goTab, role, allJobs, allThreads, joinedGroups, unlockChat } = useStore();
   const isMe = !id || id === "me" || id === me.id;
   const p: Person = isMe ? me : personById(id);
   const [tabIdx, setTabIdx] = useState(0);
@@ -637,10 +637,9 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                         variant="primary"
                         className="h-11 flex-1 !text-[14px] cursor-pointer"
                         onClick={() => {
-                          if (chatFor) {
-                            goTab("chat");
-                            push({ name: "chatRoom", id: chatFor.id });
-                          }
+                          unlockChat(p.id);
+                          goTab("chat");
+                          push({ name: "chatRoom", id: `c_${p.id}` });
                         }}
                       >
                         <MessageCircle size={15} /> Message

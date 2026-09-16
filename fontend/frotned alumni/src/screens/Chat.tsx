@@ -54,9 +54,12 @@ const compressChatImage = (file: File): Promise<string> => {
 
 /* ============== CHAT LIST ============== */
 export function ChatListScreen() {
-  const { chats, push, setActiveChat, syncMessages, syncPresence } = useStore();
+  const { chats, push, setActiveChat, syncMessages, syncPresence, unlockChat, me } = useStore();
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [newChatSheetOpen, setNewChatSheetOpen] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [availableMembers, setAvailableMembers] = useState<any[]>([]);
 
   useEffect(() => {
     // Sync all chats & presences on mount (real-time updates driven by Socket.IO)
@@ -72,15 +75,45 @@ export function ChatListScreen() {
     };
   }, [chats.length, syncMessages, syncPresence]);
 
+  useEffect(() => {
+    if (newChatSheetOpen) {
+      api.searchUsers(memberSearch).then((res) => {
+        if (res.success && Array.isArray(res.data?.items)) {
+          const myId = me?.id;
+          const filteredList = res.data.items.filter((u: any) => u && u.id !== myId && u.id !== "me" && u.email !== me?.email);
+          setAvailableMembers(filteredList);
+        }
+      }).catch(() => {});
+    }
+  }, [newChatSheetOpen, memberSearch, me]);
+
   const filtered = chats.filter((c) => (personById(c.userId)?.name || "").toLowerCase().includes(q.toLowerCase()));
+
+  const startChatWith = (userId: string) => {
+    unlockChat(userId);
+    setNewChatSheetOpen(false);
+    setActiveChat(`c_${userId}`);
+    push({ name: "chatRoom", id: `c_${userId}` });
+  };
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar pb-32">
       <div className="px-5 pt-3">
-        <h1 className="font-display text-[24px] font-bold tracking-tight text-ink">Chats</h1>
-        <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-sub">
-          <ShieldCheck size={13} className="text-mint" /> End-to-end encrypted · only you &amp; them can read
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-[24px] font-bold tracking-tight text-ink">Chats</h1>
+            <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-sub">
+              <ShieldCheck size={13} className="text-mint" /> End-to-end encrypted · only you &amp; them can read
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNewChatSheetOpen(true)}
+            className="btn-press flex items-center gap-1.5 rounded-full bg-navy px-3.5 py-2 text-[12px] font-bold text-white shadow-sm hover:bg-navy-700 transition-colors cursor-pointer"
+          >
+            <Plus size={15} /> New Chat
+          </button>
+        </div>
 
         {/* search */}
         <div className="card mt-3 flex items-center gap-2.5 px-3.5 py-2.5">
@@ -99,13 +132,24 @@ export function ChatListScreen() {
         {loading ? (
           <ListSkeleton rows={5} />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={<MessageCircle size={32} />}
-            title="No messages yet"
-            copy="Connect with alumni or students to start private, encrypted chats."
-            cta="Explore Directory"
-            onCta={() => push({ name: "directory" })}
-          />
+          <div className="px-2">
+            <EmptyState
+              icon={<MessageCircle size={32} />}
+              title="No active conversations"
+              copy="Start a secure, direct encrypted chat with any alumnus or student from the network."
+              cta="Start a Chat"
+              onCta={() => setNewChatSheetOpen(true)}
+            />
+            <div className="mt-2 text-center">
+              <button
+                type="button"
+                onClick={() => push({ name: "directory" })}
+                className="text-[12.5px] font-bold text-navy hover:underline cursor-pointer py-2 px-3"
+              >
+                Or browse all members in Directory →
+              </button>
+            </div>
+          </div>
         ) : (
           filtered.map((c) => {
             const p = personById(c.userId);
@@ -152,6 +196,52 @@ export function ChatListScreen() {
           })
         )}
       </div>
+
+      {/* New Chat Sheet */}
+      <Sheet open={newChatSheetOpen} onClose={() => setNewChatSheetOpen(false)} title="Start New Conversation">
+        <div className="space-y-3 pb-6">
+          <div className="card flex items-center gap-2.5 px-3.5 py-2">
+            <Search size={16} className="text-sub" />
+            <input
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+              placeholder="Search member by name, branch, company…"
+              className="w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-sub/60"
+            />
+          </div>
+
+          <div className="max-h-[340px] overflow-y-auto no-scrollbar space-y-1.5 pt-1">
+            {availableMembers.length === 0 ? (
+              <div className="py-8 text-center text-[13px] text-sub">
+                No members found matching "{memberSearch}".
+              </div>
+            ) : (
+              availableMembers.map((m: any) => {
+                const headline = m.alumniDetails?.designation
+                  ? `${m.alumniDetails.designation} @ ${m.alumniDetails.currentCompany || "Enterprise"}`
+                  : `${m.role === "ALUMNI" ? "Alumnus" : "Student"} · ${m.alumniDetails?.branch || m.studentDetails?.branch || "CSE"}`;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => startChatWith(m.id)}
+                    className="card flex w-full items-center gap-3 p-3 text-left hover:border-navy/30 transition-colors cursor-pointer"
+                  >
+                    <InitialsAvatar name={m.name || "Member"} size={42} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-bold text-ink">{m.name}</p>
+                      <p className="truncate text-[12px] text-sub">{headline}</p>
+                    </div>
+                    <span className="rounded-full bg-navy/10 px-2.5 py-1 text-[11px] font-bold text-navy">
+                      Message
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </Sheet>
     </div>
   );
 }

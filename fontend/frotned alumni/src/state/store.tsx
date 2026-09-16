@@ -236,6 +236,18 @@ const getSavedJobs = (): Job[] => {
   return [];
 };
 
+const getSavedChats = (): Chat[] => {
+  try {
+    const myId = getMyCurrentId();
+    const raw = localStorage.getItem(`jecrc_user_chats_${myId}`) || localStorage.getItem("jecrc_user_chats_default");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
 const getSavedMeProfile = (): Person => {
   try {
     const raw = localStorage.getItem("user_me_profile_latest");
@@ -308,10 +320,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
   ]);
 
-  const [chats, setChats] = useState<Chat[]>([]);
+  const [chats, setChats] = useState<Chat[]>(getSavedChats);
   const chatsRef = useRef<Chat[]>([]);
   chatsRef.current = chats;
   const knownMsgIds = useRef<Set<string>>(new Set());
+
+  // Persist chats to local storage
+  useEffect(() => {
+    try {
+      const myId = getMyCurrentId(me);
+      if (chats.length > 0) {
+        localStorage.setItem(`jecrc_user_chats_${myId}`, JSON.stringify(chats));
+        localStorage.setItem("jecrc_user_chats_default", JSON.stringify(chats));
+      }
+    } catch (e) {}
+  }, [chats, me]);
 
   const activeChatRef = useRef<string | null>(null);
   activeChatRef.current = activeChat;
@@ -1169,18 +1192,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const sendChat = useCallback(
     async (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => {
-      const chat = chats.find((c) => c.id === chatId || c.userId === chatId);
-      if (!chat) return;
+      const existingChat = chatsRef.current.find((c) => c.id === chatId || c.userId === chatId);
+      const peerUserId = existingChat ? existingChat.userId : (chatId.startsWith("c_") ? chatId.slice(2) : chatId);
+      const effectiveChatId = existingChat ? existingChat.id : `c_${peerUserId}`;
       const tempId = `m_${Date.now()}`;
       const timeStr = nowTime();
+      const newMsg: ChatMsg = { ...msg, id: tempId, time: timeStr, status: "sent", fromMe: true };
 
-      setChats((cs) =>
-        cs.map((c) =>
-          c.id === chat.id
-            ? { ...c, msgs: [...c.msgs, { ...msg, id: tempId, time: timeStr, status: "sent", fromMe: true }] }
-            : c
-        )
-      );
+      setChats((cs) => {
+        const found = cs.find((c) => c.id === effectiveChatId || c.userId === peerUserId);
+        if (found) {
+          return cs.map((c) =>
+            c.id === found.id
+              ? { ...c, msgs: [...c.msgs, newMsg] }
+              : c
+          );
+        } else {
+          return [
+            {
+              id: effectiveChatId,
+              userId: peerUserId,
+              online: false,
+              lastSeen: "Offline",
+              unread: 0,
+              locked: false,
+              msgs: [newMsg],
+            },
+            ...cs,
+          ];
+        }
+      });
 
       try {
         let content = msg.text;
@@ -1194,11 +1235,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         let nonce: string | undefined = undefined;
 
         const myPrivateKeyJwkRaw = sessionStorage.getItem("e2e_private_key_jwk");
-        const peerPerson = personById(chat.userId);
+        const peerPerson = personById(peerUserId);
         let recipientPublicKeyHex = (peerPerson as any)?.publicKey;
         if (!recipientPublicKeyHex) {
           try {
-            const keyRes = await api.getPublicKey(chat.userId);
+            const keyRes = await api.getPublicKey(peerUserId);
             if (keyRes.success && keyRes.data?.publicKey) {
               recipientPublicKeyHex = keyRes.data.publicKey;
               (peerPerson as any).publicKey = recipientPublicKeyHex;
@@ -1221,7 +1262,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           socket.emit(
             "sendMessage",
             {
-              receiverId: chat.userId,
+              receiverId: peerUserId,
               encryptedContent,
               nonce,
               senderPublicKey: recipientPublicKeyHex,
@@ -1230,7 +1271,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               if (res && res.success && res.message?.id) {
                 setChats((cs) =>
                   cs.map((c) =>
-                    c.id === chat.id
+                    c.id === effectiveChatId || c.userId === peerUserId
                       ? {
                           ...c,
                           msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.message.id, status: "delivered", fromMe: true } : m)),
@@ -1241,13 +1282,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }
             }
           );
-          sendStopTyping?.(chat.userId);
+          sendStopTyping?.(peerUserId);
         } else {
-          const res = await api.sendMessage(chat.userId, encryptedContent, nonce);
+          const res = await api.sendMessage(peerUserId, encryptedContent, nonce);
           if (res.success && res.data?.id) {
             setChats((cs) =>
               cs.map((c) =>
-                c.id === chat.id
+                c.id === effectiveChatId || c.userId === peerUserId
                   ? {
                       ...c,
                       msgs: c.msgs.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "delivered", fromMe: true } : m)),
@@ -1260,7 +1301,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } catch (_e) {
       }
     },
-    [chats, sendStopTyping]
+    [sendStopTyping]
   );
 
   const deleteMessage = useCallback(
