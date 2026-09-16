@@ -269,7 +269,17 @@ export function ChatRoomScreen({ id }: { id: string }) {
       syncPresence(chat.userId);
       api.markMessagesRead(chat.userId).catch(() => {});
     }
-    return () => setActiveChat(null);
+    // Auto-sync messages every 8 seconds while in the chat room (backup when socket is offline)
+    const pollTimer = setInterval(() => {
+      if (chat.userId) {
+        syncMessages(chat.userId);
+        syncPresence(chat.userId);
+      }
+    }, 8000);
+    return () => {
+      clearInterval(pollTimer);
+      setActiveChat(null);
+    };
   }, [chat.id, chat.userId, setActiveChat, syncMessages, syncPresence]);
 
   useEffect(() => {

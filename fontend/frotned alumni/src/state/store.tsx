@@ -679,6 +679,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             });
           });
 
+          socket.on("reconnect", () => {
+            chatsRef.current.forEach((c) => {
+              if (c.userId) {
+                syncMessages(c.userId);
+                syncPresence(c.userId);
+              }
+            });
+          });
+
           socket.on("newMessage", async (m: any) => {
             if (!m || !m.id) return;
             const deletedMsgSet = getDeletedMsgIds();
@@ -844,6 +853,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("focus", onFocus);
 
+    // Page visibility change handler — syncs messages when tab becomes visible again (no manual refresh needed)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible" && api.getToken()) {
+        chatsRef.current.forEach((c) => {
+          if (c.userId) {
+            syncMessages(c.userId);
+            syncPresence(c.userId);
+          }
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     // 1. Sync Jobs / Posts
     syncJobs();
 
@@ -885,16 +907,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     heartbeat();
     const heartbeatTimer = setInterval(heartbeat, 30000);
+
+    // Sync connections at a lower frequency (60s) to avoid excessive re-renders
     const syncTimer = setInterval(() => {
       if (api.getToken()) {
         syncConnections();
       }
-    }, 10000);
+    }, 60000);
+
+    // Message polling fallback: when socket is disconnected, poll every 15s for new messages
+    const msgPollTimer = setInterval(() => {
+      const s = getSocket();
+      if (api.getToken() && (!s || !s.connected)) {
+        chatsRef.current.forEach((c) => {
+          if (c.userId) {
+            syncMessages(c.userId);
+          }
+        });
+      }
+    }, 15000);
 
     return () => {
       clearInterval(heartbeatTimer);
       clearInterval(syncTimer);
+      clearInterval(msgPollTimer);
       window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [syncConnections]);
 
