@@ -823,7 +823,7 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                 onChange={(e) => setEditForm((prev) => ({ ...prev, branch: e.target.value }))}
                 className="input w-full"
               >
-                {["CSE", "IT", "ECE", "EE", "ME", "Civil", "AI & DS"].map((b) => (
+                {["CSE", "CSAI", "AIDS", "IT", "ECE", "EE", "ME", "Civil"].map((b) => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>

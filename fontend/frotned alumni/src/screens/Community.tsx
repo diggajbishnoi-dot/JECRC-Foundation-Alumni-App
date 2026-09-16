@@ -290,8 +290,8 @@ const normalizeBatch = (rawBatch?: string): string => {
 const normalizeBranch = (rawBranch?: string): string => {
   if (!rawBranch) return "CSE";
   const b = rawBranch.toUpperCase().trim();
-  if (b.includes("CSAI") || b.includes("AIML") || b.includes("AI & ML") || b.includes("AI/ML") || b.includes("ARTIFICIAL INTEL")) return "AIML";
-  if (b.includes("AIDS") || b.includes("DATA SCIENCE") || b.includes("DS") || b.includes("AI & DS")) return "AIDS";
+  if (b.includes("CSAI") || b.includes("AIML") || b.includes("AI & ML") || b.includes("AI/ML") || b.includes("ARTIFICIAL INTEL")) return "CSAI";
+  if (b.includes("AIDS") || b.includes("DATA SCIENCE") || b.includes("DS") || b.includes("AI & DS") || b.includes("AI/DS")) return "AIDS";
   if (b.includes("CSE") || b.includes("COMPUTER")) return "CSE";
   if (b.includes("ECE") || b.includes("ELECTRONIC")) return "ECE";
   if (b.includes("IT") || b.includes("INFORMATION")) return "IT";
@@ -321,6 +321,7 @@ export function GroupsScreen() {
   const myDeptCommunity = allGroups.find(
     (g) => g.type === "department" && (
       g.branch === userBranch ||
+      (userBranch === "CSAI" && (g.branch === "CSAI" || g.branch === "AIML")) ||
       (userBranch === "AIDS" && (g.branch === "AIDS" || g.branch === "AI & DS")) ||
       (userBranch === "Civil" && (g.branch === "Civil" || g.branch === "CE"))
     )
