@@ -9,7 +9,11 @@ import { MessagesService } from './messages.service';
 @Module({
   imports: [ConnectionsModule, StorageModule, JwtModule.register({})],
   controllers: [MessagesController],
-  providers: [MessagesService, MessagesGateway],
-  exports: [MessagesService, MessagesGateway],
+  providers: [
+    MessagesService,
+    MessagesGateway,
+    { provide: 'MESSAGES_GATEWAY', useExisting: MessagesGateway },
+  ],
+  exports: [MessagesService, MessagesGateway, 'MESSAGES_GATEWAY'],
 })
 export class MessagesModule {}

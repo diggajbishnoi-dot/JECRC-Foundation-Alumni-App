@@ -40,13 +40,14 @@ export class GlobalThrottlerGuard implements CanActivate {
       req.ip ||
       '127.0.0.1';
 
-    // Skip rate limiting in development or for local dev loopback connections
+    // Skip rate limiting if explicitly disabled or in local dev loopback connections (unless in test mode)
     if (
-      process.env.NODE_ENV !== 'production' ||
-      clientIp === '127.0.0.1' ||
-      clientIp === '::1' ||
-      clientIp === '::ffff:127.0.0.1' ||
-      clientIp === 'localhost'
+      process.env.DISABLE_RATE_LIMIT === 'true' ||
+      (process.env.NODE_ENV === 'development' &&
+        (clientIp === '127.0.0.1' ||
+          clientIp === '::1' ||
+          clientIp === '::ffff:127.0.0.1' ||
+          clientIp === 'localhost'))
     ) {
       return true;
     }
@@ -54,8 +55,8 @@ export class GlobalThrottlerGuard implements CanActivate {
     const identifier = userId ? `user:${userId}` : `ip:${clientIp}`;
     const key = `ratelimit:global:${identifier}`;
 
-    // Global rate limit for production: 1000 requests per 60 seconds (1 minute window)
-    const MAX_REQUESTS = 1000;
+    // Global rate limit: 100 requests per 60 seconds (1 minute window)
+    const MAX_REQUESTS = 100;
     const WINDOW_SECONDS = 60;
 
     const allowed = await this.redisService.checkRateLimit(key, MAX_REQUESTS, WINDOW_SECONDS);

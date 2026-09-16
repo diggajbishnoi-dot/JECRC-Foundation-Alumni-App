@@ -49,6 +49,7 @@ describe('AuthService', () => {
     getFailedAttempts: jest.fn().mockResolvedValue(0),
     incrementFailedAttempts: jest.fn().mockResolvedValue(1),
     resetFailedAttempts: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockJwtService = {

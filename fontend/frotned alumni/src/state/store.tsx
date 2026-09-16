@@ -318,6 +318,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const mappedPerson: Person = {
               id: peer.id,
               name: peer.name,
+              email: peer.email,
               role: (peer.role?.toLowerCase() as Role) || "alumni",
               headline: peer.alumniDetails?.designation
                 ? `${peer.alumniDetails.designation} @ ${peer.alumniDetails.currentCompany || "Enterprise"}`
@@ -368,10 +369,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (reqUser?.id) {
             connIdMap.current[reqUser.id] = item.id;
             receivedIds.push(reqUser.id);
-            setConn((prev) => ({ ...prev, [reqUser.id]: "none" }));
+            setConn((prev) => ({ ...prev, [reqUser.id]: "received" }));
             const mappedPerson: Person = {
               id: reqUser.id,
               name: reqUser.name,
+              email: reqUser.email,
               role: (reqUser.role?.toLowerCase() as Role) || "alumni",
               headline: reqUser.alumniDetails?.designation
                 ? `${reqUser.alumniDetails.designation} @ ${reqUser.alumniDetails.currentCompany || "Enterprise"}`
@@ -432,6 +434,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const mappedPerson: Person = {
               id: recUser.id,
               name: recUser.name,
+              email: recUser.email,
               role: (recUser.role?.toLowerCase() as Role) || "alumni",
               headline: recUser.alumniDetails?.designation
                 ? `${recUser.alumniDetails.designation} @ ${recUser.alumniDetails.currentCompany || "Enterprise"}`
@@ -672,6 +675,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (!data?.senderId) return;
             setTyping((prev) => ({ ...prev, [`c_${data.senderId}`]: false, [data.senderId]: false }));
           });
+
+          socket.on("connectionRequest", () => {
+            syncConnections();
+            toast("📩 New connection request received!");
+          });
+
+          socket.on("connectionAccepted", () => {
+            syncConnections();
+            toast("🎉 Connection request accepted!");
+          });
+
+          socket.on("notification", () => {
+            syncConnections();
+          });
         }
       }
 
@@ -693,6 +710,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (res.success && Array.isArray(res.data?.items)) {
         const backendJobs: Job[] = res.data.items.map((item: any) => ({
           id: item.id,
+          posterId: item.user?.id || item.userId,
           title: item.title,
           company: item.company || "Enterprise Partner",
           location: item.location || "Bengaluru / Hybrid",
@@ -703,9 +721,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           postedBy: item.user?.name || "Alumni Cell",
           postedAgo: "Recently",
           deadline: "Rolling",
-          applicants: 14,
+          applicants: item.applicantCount ?? 0,
           branch: "CSE",
           desc: item.description,
+          mine: (item.user?.id || item.userId) === me.id,
         }));
         if (backendJobs.length > 0) {
           setAllJobs((existing) => [...backendJobs, ...existing.filter((j) => !backendJobs.some((bj) => bj.id === j.id))]);
@@ -750,10 +769,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     };
     heartbeat();
-    const heartbeatTimer = setInterval(heartbeat, 25000);
+    const syncTimer = setInterval(() => {
+      if (api.getToken()) {
+        syncConnections();
+      }
+    }, 10000);
 
     return () => {
       clearInterval(heartbeatTimer);
+      clearInterval(syncTimer);
       window.removeEventListener("focus", onFocus);
     };
   }, [syncConnections]);

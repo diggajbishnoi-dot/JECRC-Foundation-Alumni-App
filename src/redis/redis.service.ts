@@ -160,6 +160,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       if (this.isConnected && this.client) {
         try {
           await this.client.incr(key);
+          const ttl = await this.client.ttl(key);
+          if (ttl < 0) {
+            await this.client.expire(key, windowSeconds);
+          }
         } catch {
           await this.set(key, (count + 1).toString());
         }
@@ -170,6 +174,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return true;
+  }
+
+  async resetRateLimit(key: string): Promise<void> {
+    await this.del(key);
   }
 
   /**

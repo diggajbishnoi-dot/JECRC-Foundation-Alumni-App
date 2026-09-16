@@ -178,7 +178,7 @@ export function JobsScreen() {
                       <div className="mt-3.5 flex items-center justify-between border-t border-line pt-3">
                         <span className="text-[13.5px] font-bold text-navy">{j.pay}</span>
                         <div className="flex items-center gap-3 text-[11px] text-sub/70">
-                          <span className="flex items-center gap-1"><Users size={11} /> {j.applicants || 0}</span>
+                          {role === "alumni" && <span className="flex items-center gap-1"><Users size={11} /> {j.applicants || 0}</span>}
                           <span className="flex items-center gap-1"><Clock size={11} /> {j.postedAgo}</span>
                         </div>
                         {role === "student" && (
@@ -272,7 +272,7 @@ export function JobsScreen() {
 
 /* ============== JOB DETAIL ============== */
 export function JobDetailScreen({ id }: { id: string }) {
-  const { allJobs, pop, role, me, applyJob, fetchApplicationsForJob, appliedJobIds, push, toast } = useStore();
+  const { allJobs, pop, me, applyJob, fetchApplicationsForJob, appliedJobIds, push, toast } = useStore();
   const j = allJobs.find((x) => x.id === id);
 
   // Student apply state
@@ -296,15 +296,18 @@ export function JobDetailScreen({ id }: { id: string }) {
   const [applicantsDrawerOpen, setApplicantsDrawerOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
+  // STRICT: Only the exact alumni who posted this job can see applicant details
+  const isPoster = j ? (j.posterId === me.id || j.mine === true) : false;
+
   useEffect(() => {
-    if (j?.id) {
+    if (j?.id && isPoster) {
       fetchApplicationsForJob(j.id);
     }
-  }, [j?.id, fetchApplicationsForJob]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [j?.id, isPoster, fetchApplicationsForJob]);
 
   if (!j) return null;
 
-  const isPoster = j.mine || j.posterId === me.id || (role === "alumni" && (j.postedBy === me.name || (me.company && j.company === me.company)));
   const isApplied = appliedJobIds.has(j.id);
   const applicantList = j.applicantList || [];
 
@@ -380,9 +383,9 @@ export function JobDetailScreen({ id }: { id: string }) {
             <Tag tone="gold"><MapPin size={10} /> {j.mode}</Tag>
             <Tag tone="mint">{j.pay}</Tag>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2.5">
+          <div className={`mt-4 grid ${isPoster ? 'grid-cols-3' : 'grid-cols-2'} gap-2.5`}>
             {[
-              { icon: Users, l: "Applicants", v: `${j.applicants || applicantList.length || 0}` },
+              ...(isPoster ? [{ icon: Users, l: "Applicants", v: `${j.applicants || applicantList.length || 0}` }] : []),
               { icon: CalendarDays, l: "Deadline", v: j.deadline.split(" ").slice(0, 2).join(" ") },
               { icon: Clock, l: "Posted", v: `${j.postedAgo}` },
             ].map((m) => (
@@ -813,7 +816,7 @@ export function PostJobScreen({ embedded }: { embedded?: boolean }) {
     setLoading(true);
     setTimeout(() => {
       addJob({
-        id: `j_${Date.now()}`, title: f.title, company: f.company, location: f.location,
+        id: `j_${Date.now()}`, posterId: me.id, title: f.title, company: f.company, location: f.location,
         type: f.type, mode: f.mode, pay: calculatedPay,
         skills, postedBy: me.name, postedAgo: "now", deadline: f.deadline, applicants: 0,
         branch: me.branch, desc: f.desc, mine: true,

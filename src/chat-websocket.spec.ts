@@ -1,7 +1,12 @@
-// Mock socket functions for testing (avoid cross-project imports)
-const connectSocket = jest.fn();
-const disconnectSocket = jest.fn();
-const getSocket = jest.fn(() => null);
+let activeSocket: any = null;
+const connectSocket = jest.fn((token?: string) => {
+  activeSocket = { auth: { token } };
+  return activeSocket;
+});
+const disconnectSocket = jest.fn(() => {
+  activeSocket = null;
+});
+const getSocket = jest.fn(() => activeSocket);
 import { MessagesGateway } from './modules/messages/messages.gateway';
 
 describe('P2-002: WebSocket Chat replacing REST Polling', () => {

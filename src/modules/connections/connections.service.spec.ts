@@ -4,6 +4,8 @@ import { ConnectionStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConnectionsService } from './connections.service';
 
+import { MessagesGateway } from '../messages/messages.gateway';
+
 describe('ConnectionsService', () => {
   let service: ConnectionsService;
 
@@ -22,11 +24,17 @@ describe('ConnectionsService', () => {
     mentorshipRequest: { findFirst: jest.fn() },
   };
 
+  const mockMessagesGateway = {
+    notifyConnectionRequest: jest.fn(),
+    notifyConnectionAccepted: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConnectionsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: MessagesGateway, useValue: mockMessagesGateway },
       ],
     }).compile();
 

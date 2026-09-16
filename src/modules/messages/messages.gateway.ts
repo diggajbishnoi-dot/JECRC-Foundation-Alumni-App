@@ -265,4 +265,30 @@ export class MessagesGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       senderId: client.userId,
     });
   }
+
+  /**
+   * Broadcast real-time connection request to receiver
+   */
+  notifyConnectionRequest(receiverId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`user:${receiverId}`).emit('connectionRequest', payload);
+      this.server.to(`user:${receiverId}`).emit('notification', {
+        type: 'CONNECTION_REQUEST',
+        payload,
+      });
+    }
+  }
+
+  /**
+   * Broadcast real-time connection accepted event to requester
+   */
+  notifyConnectionAccepted(requesterId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`user:${requesterId}`).emit('connectionAccepted', payload);
+      this.server.to(`user:${requesterId}`).emit('notification', {
+        type: 'CONNECTION_ACCEPTED',
+        payload,
+      });
+    }
+  }
 }

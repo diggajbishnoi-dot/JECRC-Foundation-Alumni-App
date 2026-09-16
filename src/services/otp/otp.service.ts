@@ -49,11 +49,9 @@ export class OtpService {
 
     const emailResult = await this.sendEmailOtp(destination, rawOtp);
 
-    // Demo / Random OTP preview for local dev and when no paid SMS/Email API key is configured
-    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    const previewExplicitlyAllowed = this.configService.get<string>('ALLOW_OTP_PREVIEW', 'true') !== 'false';
-    const shouldProvidePreview = !isProduction || previewExplicitlyAllowed || !resendApiKey;
+    const previewAllowed = this.configService.get<string>('ALLOW_OTP_PREVIEW') === 'true';
+    const shouldProvidePreview = !isProduction && previewAllowed;
 
     return {
       channel: OtpChannel.EMAIL,

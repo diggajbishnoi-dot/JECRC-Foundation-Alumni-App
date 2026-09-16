@@ -221,7 +221,8 @@ export class AuthService {
    * Direct password-only login for all verified users. NO OTP repeated!
    */
   async login(dto: LoginDto) {
-    const rateLimitKey = `ratelimit:login:${dto.emailOrMobile}`;
+    const cleanId = (dto.emailOrMobile || '').trim().toLowerCase();
+    const rateLimitKey = `ratelimit:login:${cleanId}`;
     const allowed = await this.redisService.checkRateLimit(rateLimitKey, 10, 60);
     if (!allowed) {
       throw new ForbiddenException('Too many login attempts. Please try again in a minute.');
@@ -242,6 +243,9 @@ export class AuthService {
         'Account is not yet verified. Please verify the one-time registration OTP sent to your email.',
       );
     }
+
+    // Reset failed login attempt counter upon successful authentication
+    await this.redisService.del(rateLimitKey);
 
     const tokens = await this.generateTokens(user);
     await this.updateRefreshToken(user.id, tokens.refreshToken);

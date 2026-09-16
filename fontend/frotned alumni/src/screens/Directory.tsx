@@ -14,6 +14,7 @@ import {
   BriefcaseBusiness,
   HeartHandshake,
   Settings,
+  Mail,
 } from "lucide-react";
 import { useStore, personById, registerDynamicUser } from "../state/store";
 import { Person } from "../data/mock";
@@ -549,6 +550,11 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                 <span className="flex items-center gap-1.5">
                   <GraduationCap size={14} className="text-navy" /> {p.branch} · {p.batch}
                 </span>
+                {p.email && (
+                  <span className="flex items-center gap-1.5 font-medium text-navy">
+                    <Mail size={14} className="text-navy" /> {p.email}
+                  </span>
+                )}
                 {p.company && (
                   <span className="flex items-center gap-1.5">
                     <Building2 size={14} className="text-navy" /> {p.company}
@@ -668,6 +674,19 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                     <p className="label">Bio</p>
                     <p className="text-[13.5px] leading-relaxed text-sub">{p.about}</p>
                   </div>
+                  <div className="rounded-xl bg-slate-50 p-3.5 border border-line/60">
+                    <div className="flex items-center justify-between">
+                      <p className="label flex items-center gap-1.5 !mb-0">
+                        <Mail size={13} className="text-navy" /> Institutional Email
+                      </p>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10.5px] font-bold text-emerald-700">
+                        <Lock size={10} /> Verified · Non-editable
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-[13.5px] font-semibold text-ink select-all">
+                      {p.email || me.email || "Registered Institutional Account"}
+                    </p>
+                  </div>
                   {p.domains && (
                     <div>
                       <p className="label">Mentorship domains</p>
@@ -768,6 +787,22 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
               placeholder="e.g. Arjun Mehta"
               required
             />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="label !mb-0">Email Address</label>
+              <span className="text-[11px] font-bold text-sub flex items-center gap-1">
+                <Lock size={11} /> Non-editable
+              </span>
+            </div>
+            <input
+              type="email"
+              value={p.email || me.email || ""}
+              disabled
+              readOnly
+              className="input w-full bg-slate-100 text-sub cursor-not-allowed opacity-80 font-medium"
+            />
+            <p className="mt-1 text-[11px] text-sub/70">Email is permanently linked to your institutional profile and cannot be changed.</p>
           </div>
           <div>
             <label className="label">Headline</label>

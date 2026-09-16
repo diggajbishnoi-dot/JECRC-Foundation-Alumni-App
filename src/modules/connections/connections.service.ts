@@ -2,16 +2,25 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
+  forwardRef,
 } from '@nestjs/common';
 import { ConnectionStatus } from '@prisma/client';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { MessagesGateway } from '../messages/messages.gateway';
 
 @Injectable()
 export class ConnectionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional()
+    @Inject('MESSAGES_GATEWAY')
+    private readonly messagesGateway?: any,
+  ) {}
 
   /**
    * Send Connection Request
@@ -64,6 +73,8 @@ export class ConnectionsService {
         },
       });
 
+      this.messagesGateway?.notifyConnectionRequest(receiverId, { requesterId, connectionId: updated.id });
+
       return updated;
     }
 
@@ -83,6 +94,8 @@ export class ConnectionsService {
         payload: { requesterId, connectionId: connection.id },
       },
     });
+
+    this.messagesGateway?.notifyConnectionRequest(receiverId, { requesterId, connectionId: connection.id });
 
     return connection;
   }
@@ -120,6 +133,8 @@ export class ConnectionsService {
         payload: { acceptedByUserId: userId, connectionId },
       },
     });
+
+    this.messagesGateway?.notifyConnectionAccepted(connection.requesterId, { acceptedByUserId: userId, connectionId });
 
     return updated;
   }
@@ -188,6 +203,7 @@ export class ConnectionsService {
             select: {
               id: true,
               name: true,
+              email: true,
               role: true,
               profilePicUrl: true,
               alumniDetails: true,
@@ -198,6 +214,7 @@ export class ConnectionsService {
             select: {
               id: true,
               name: true,
+              email: true,
               role: true,
               profilePicUrl: true,
               alumniDetails: true,
@@ -245,6 +262,7 @@ export class ConnectionsService {
           select: {
             id: true,
             name: true,
+            email: true,
             role: true,
             profilePicUrl: true,
             alumniDetails: true,
@@ -270,6 +288,7 @@ export class ConnectionsService {
           select: {
             id: true,
             name: true,
+            email: true,
             role: true,
             profilePicUrl: true,
             alumniDetails: true,
