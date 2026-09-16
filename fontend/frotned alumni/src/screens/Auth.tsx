@@ -19,7 +19,7 @@ import { api } from "../services/api";
 
 type AuthScreen = "welcome" | "register" | "otp" | "details" | "login" | "forgot" | "claim";
 
-const branches = ["CSE", "IT", "ECE", "AIML", "EE", "ME", "CE"];
+const branches = ["CSE", "IT", "ECE", "EE", "ME", "Civil", "AI & DS"];
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 /* ---------- shell: wavy header + overlapping white card ---------- */
