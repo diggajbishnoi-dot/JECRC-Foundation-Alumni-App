@@ -20,6 +20,8 @@ import {
   QueryThreadsDto,
 } from './dto/discussions.dto';
 
+import { Public } from '../../common/decorators/roles.decorator';
+
 @ApiTags('Discussions & Idea Board')
 @ApiBearerAuth('JWT')
 @UseGuards(JwtAuthGuard)
@@ -38,6 +40,7 @@ export class DiscussionsController {
   }
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Get paginated discussion threads (filter by category, sort by newest/upvotes)' })
   async getThreads(
     @Query() query: QueryThreadsDto,

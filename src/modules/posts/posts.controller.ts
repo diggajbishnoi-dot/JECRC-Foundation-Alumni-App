@@ -16,6 +16,8 @@ import { ApplyJobDto } from './dto/applications.dto';
 import { CreatePostDto, QueryPostsDto } from './dto/posts.dto';
 import { PostsService } from './posts.service';
 
+import { Public } from '../../common/decorators/roles.decorator';
+
 @ApiTags('Posts & Jobs')
 @ApiBearerAuth('JWT')
 @UseGuards(JwtAuthGuard)
@@ -34,6 +36,7 @@ export class PostsController {
   }
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Get paginated post & job feed' })
   async getPostsFeed(@Query() query: QueryPostsDto) {
     return await this.postsService.getPostsFeed(query);
