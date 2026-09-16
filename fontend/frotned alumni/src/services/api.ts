@@ -227,7 +227,7 @@ class ApiService {
       return res;
     }
 
-    // Resilient Fallback: If backend is offline or network fails, check local accounts or authenticate locally
+    // If backend returned an explicit error response (e.g. 401 unauthorized, 404 not found, 403 unverified, etc.)
     const isNetworkIssue = !res.success && (
       res.error?.includes('Network') ||
       res.error?.includes('Failed to fetch') ||
@@ -241,7 +241,14 @@ class ApiService {
       const localAccounts = this.getLocalAccounts();
       const localAcc = localAccounts[cleanId];
 
-      if (localAcc && localAcc.password && localAcc.password !== password) {
+      if (!localAcc) {
+        return {
+          success: false,
+          error: 'This user is not registered. No account found with this email. Please sign up first.',
+        };
+      }
+
+      if (localAcc.password && localAcc.password !== password) {
         return { success: false, error: 'Incorrect password. Please check your password and try again.' };
       }
 
@@ -251,37 +258,30 @@ class ApiService {
       };
       this.setTokens(mockTokens);
 
-      const isStudent = cleanId.includes('student') || cleanId.includes('.2') || (localAcc && localAcc.role === 'STUDENT');
+      const isStudent = localAcc.role === 'STUDENT';
       const userRole = isStudent ? 'STUDENT' : 'ALUMNI';
-      const cleanName = localAcc?.name || cleanId.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'JECRC Member';
+      const cleanName = localAcc.name || cleanId.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'JECRC Member';
 
       const fallbackUser = {
-        id: localAcc?.id || `usr_${Date.now()}`,
+        id: localAcc.id || `usr_${Date.now()}`,
         name: cleanName,
         email: cleanId,
         role: userRole,
         isVerified: true,
-        bio: 'JECRC Alumni Network Member',
-        city: localAcc?.city || 'Jaipur',
+        bio: localAcc.about || 'JECRC Alumni Network Member',
+        city: localAcc.city || 'Jaipur',
         alumniDetails: userRole === 'ALUMNI' ? {
-          branch: localAcc?.branch || 'CSE',
-          batch: localAcc?.batch || '2020',
-          currentCompany: localAcc?.currentCompany || 'JECRC Alumni',
-          designation: localAcc?.designation || 'Alumnus',
+          branch: localAcc.branch || 'CSE',
+          batch: localAcc.batch || '2020',
+          currentCompany: localAcc.currentCompany || 'JECRC Alumni',
+          designation: localAcc.designation || 'Alumnus',
         } : undefined,
         studentDetails: userRole === 'STUDENT' ? {
-          branch: localAcc?.branch || 'CSE',
-          currentYear: 3,
-          expectedPassoutYear: 2026,
+          branch: localAcc.branch || 'CSE',
+          currentYear: localAcc.currentYear || 3,
+          expectedPassoutYear: localAcc.expectedPassoutYear || 2026,
         } : undefined,
       };
-
-      if (!localAcc && cleanId) {
-        this.saveLocalAccount(cleanId, {
-          ...fallbackUser,
-          isVerified: true,
-        });
-      }
 
       return {
         success: true,
@@ -311,6 +311,16 @@ class ApiService {
     passoutYear?: number;
   }) {
     const cleanEmail = (data.email || '').trim().toLowerCase();
+    
+    // Strict duplicate check: 1 account per email
+    const localAccounts = this.getLocalAccounts();
+    if (cleanEmail && localAccounts[cleanEmail]) {
+      return {
+        success: false,
+        error: 'An account with this email is already registered. Please sign in instead.',
+      };
+    }
+
     const res = await this.request<{ userId?: string; previewOtpForDev?: string; message?: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -531,27 +541,37 @@ class ApiService {
 
     if (res.success && res.data) return res;
 
-    // Resilient Fallback: Match against mock college database
+    // Check local accounts for match
     const cleanId = (identifier || '').trim().toLowerCase();
-    const isStudent = role?.toUpperCase() === 'STUDENT' || cleanId.includes('student');
-    const matched = {
-      id: `claim_${Date.now()}`,
-      name: cleanId.includes('@') ? cleanId.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'JECRC Scholar',
-      email: cleanId.includes('@') ? cleanId : `${cleanId}@jecrc.ac.in`,
-      maskedEmail: cleanId.includes('@') ? `${cleanId.slice(0, 3)}***@${cleanId.split('@')[1]}` : `${cleanId.slice(0, 3)}***@jecrc.ac.in`,
-      role: (isStudent ? 'STUDENT' : 'ALUMNI') as 'ALUMNI' | 'STUDENT',
-      branch: 'CSE',
-      batch: isStudent ? '2026' : '2020',
-      company: isStudent ? undefined : 'Tata Consultancy Services',
-      city: 'Jaipur',
-      isClaimed: false,
-    };
+    const localAccounts = this.getLocalAccounts();
+    const localAcc = localAccounts[cleanId];
+    if (localAcc) {
+      const isStudent = localAcc.role === 'STUDENT';
+      return {
+        success: true,
+        data: {
+          found: true,
+          user: {
+            id: localAcc.id || `claim_${Date.now()}`,
+            name: localAcc.name || cleanId.split('@')[0],
+            email: cleanId,
+            maskedEmail: `${cleanId.slice(0, 3)}***@${cleanId.split('@')[1] || 'jecrc.ac.in'}`,
+            role: (isStudent ? 'STUDENT' : 'ALUMNI') as 'ALUMNI' | 'STUDENT',
+            branch: localAcc.branch || 'CSE',
+            batch: localAcc.batch || '2020',
+            company: localAcc.currentCompany || 'JECRC Alumni',
+            city: localAcc.city || 'Jaipur',
+            isClaimed: !!localAcc.isVerified,
+          },
+        },
+      };
+    }
 
     return {
       success: true,
       data: {
-        found: true,
-        user: matched,
+        found: false,
+        message: 'No pre-existing college record found with this email/mobile. You can create a new account via Sign up.',
       },
     };
   }

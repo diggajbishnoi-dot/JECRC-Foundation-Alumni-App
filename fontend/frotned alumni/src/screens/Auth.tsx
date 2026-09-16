@@ -1196,16 +1196,16 @@ export default function AuthFlow() {
                   placeholder="Enter Email"
                   error={errors.l_email}
                 />
-                {typeof errors.l_email === "string" && errors.l_email && (errors.l_email.toLowerCase().includes("no account") || errors.l_email.toLowerCase().includes("not found")) && (
-                  <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 p-2.5 text-[12px] text-amber-900 flex items-center justify-between">
-                    <span>No account registered with this email.</span>
+                {typeof errors.l_email === "string" && errors.l_email && (errors.l_email.toLowerCase().includes("no account") || errors.l_email.toLowerCase().includes("not found") || errors.l_email.toLowerCase().includes("not registered") || errors.l_email.toLowerCase().includes("unregistered")) && (
+                  <div className="rounded-xl border border-rose/30 bg-rose-50/90 p-3 text-[12.5px] text-rose-900 flex items-center justify-between shadow-sm">
+                    <span className="font-medium">This user is not registered. Please sign up first.</span>
                     <button
                       type="button"
                       onClick={() => {
                         up("email", loginForm.email);
                         setScreen("register");
                       }}
-                      className="rounded-lg bg-navy px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-navy-600 cursor-pointer"
+                      className="rounded-lg bg-navy px-3 py-1.5 text-[11.5px] font-bold text-white shadow-sm hover:bg-navy-600 cursor-pointer"
                     >
                       Sign Up &rarr;
                     </button>
