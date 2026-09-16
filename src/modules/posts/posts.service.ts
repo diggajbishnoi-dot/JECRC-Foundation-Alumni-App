@@ -55,37 +55,33 @@ export class PostsService {
    */
   async getPostsFeed(query: any) {
     try {
-      const posts = await this.prisma.post.findMany({
-        take: 50,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          userId: true,
-          type: true,
-          title: true,
-          description: true,
-          company: true,
-          location: true,
-          deadline: true,
-          attachmentUrl: true,
-          createdAt: true,
-          updatedAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              role: true,
-              profilePicUrl: true,
-              alumniDetails: true,
-              studentDetails: true,
-            },
-          },
-        },
-      });
+      const posts: any[] = await this.prisma.$queryRaw`
+        SELECT p.id, p."userId", p.type, p.title, p.description, p.company, p.location, p."createdAt", p."updatedAt",
+               u.name as "userName", u.role as "userRole", u."profilePicUrl" as "userProfilePicUrl"
+        FROM "posts" p
+        LEFT JOIN "users" u ON p."userId" = u.id
+        ORDER BY p."createdAt" DESC
+        LIMIT 50
+      `;
 
       const formattedPosts = posts.map((p: any) => ({
-        ...p,
-        pay: p.pay || 'Undisclosed',
+        id: p.id,
+        userId: p.userId,
+        type: p.type,
+        title: p.title,
+        description: p.description,
+        company: p.company || 'Enterprise Partner',
+        location: p.location || 'Remote',
+        pay: 'Undisclosed',
+        deadline: p.deadline,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        user: {
+          id: p.userId,
+          name: p.userName || 'Alumni Member',
+          role: p.userRole || 'ALUMNI',
+          profilePicUrl: p.userProfilePicUrl,
+        },
         applicantCount: 0,
       }));
 
@@ -104,7 +100,6 @@ export class PostsService {
         page: 1,
         limit: 50,
         totalPages: 1,
-        debugError: err?.message || String(err),
       };
     }
   }
