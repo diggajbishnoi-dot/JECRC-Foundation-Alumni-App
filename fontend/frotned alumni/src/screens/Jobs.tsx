@@ -17,9 +17,21 @@ export function JobsScreen() {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   useEffect(() => {
-    syncJobs?.();
-    const t = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    // Wait for syncJobs to actually complete (backend can take 3-5s on cold start)
+    const run = async () => {
+      await syncJobs?.();
+      if (!cancelled) setLoading(false);
+    };
+    run();
+    // Safety net: always stop loading after 6 seconds even if backend is slow
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 6000);
+    return () => {
+      cancelled = true;
+      clearTimeout(safetyTimer);
+    };
   }, [syncJobs]);
 
   const hasActiveFilters = type !== "All" || mode !== "Any mode";

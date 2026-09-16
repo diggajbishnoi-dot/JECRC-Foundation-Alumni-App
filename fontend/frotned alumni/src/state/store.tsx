@@ -574,36 +574,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const res = await api.getPosts();
       if (res.success && Array.isArray(res.data?.items)) {
         const currentUserId = meRef.current?.id;
-        const backendJobs: Job[] = res.data.items.map((item: any) => ({
-          id: item.id,
-          posterId: item.user?.id || item.userId,
-          title: item.title,
-          company: item.company || "Enterprise Partner",
-          location: item.location || "Bengaluru / Hybrid",
-          type: item.type === "INTERNSHIP" ? "Internship" : "Full-time",
-          mode: "Hybrid",
-          pay: item.pay || "Undisclosed",
-          skills: ["Cloud", "System Architecture", "Engineering"],
-          postedBy: item.user?.name || "Alumni Member",
-          postedAgo: "Recently",
-          deadline: item.deadline ? new Date(item.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Rolling",
-          applicants: item.applicantCount ?? 0,
-          branch: item.user?.alumniDetails?.branch || item.user?.studentDetails?.branch || "CSE",
-          desc: item.description,
-          mine: (item.user?.id || item.userId) === currentUserId,
-        }));
-        setAllJobs((existing) => {
-          const merged = [...backendJobs];
-          existing.forEach((ej) => {
-            if (!merged.some((bj) => bj.id === ej.id || (bj.title === ej.title && bj.company === ej.company))) {
-              merged.push(ej);
-            }
-          });
-          try {
-            localStorage.setItem("jecrc_all_jobs_feed", JSON.stringify(merged));
-          } catch (e) {}
-          return merged;
-        });
+        const backendJobs: Job[] = res.data.items
+          // Only include actual job/internship posts, NOT general discussion posts
+          .filter((item: any) => item.type === "JOB" || item.type === "INTERNSHIP")
+          .map((item: any) => ({
+            id: item.id,
+            posterId: item.user?.id || item.userId,
+            title: item.title,
+            company: item.company || "Enterprise Partner",
+            location: item.location || "Bengaluru / Hybrid",
+            type: item.type === "INTERNSHIP" ? "Internship" : (item.type === "JOB" ? "Full-time" : "Full-time"),
+            mode: item.mode || "Hybrid",
+            pay: item.pay || "Undisclosed",
+            skills: item.skills || [],
+            postedBy: item.user?.name || "Alumni Member",
+            postedAgo: "Recently",
+            deadline: item.deadline ? new Date(item.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Rolling",
+            applicants: item.applicantCount ?? 0,
+            branch: item.user?.alumniDetails?.branch || item.user?.studentDetails?.branch || "CSE",
+            desc: item.description,
+            mine: (item.user?.id || item.userId) === currentUserId,
+          }));
+        // Replace the jobs feed with the live backend data (no stale merge with old data)
+        setAllJobs(backendJobs);
+        try {
+          localStorage.setItem("jecrc_all_jobs_feed", JSON.stringify(backendJobs));
+        } catch (e) {}
       }
     } catch (e) {}
   }, []);
