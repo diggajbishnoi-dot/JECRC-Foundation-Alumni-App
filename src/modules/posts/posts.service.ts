@@ -54,9 +54,6 @@ export class PostsService {
    * Get paginated post feed with application count
    */
   async getPostsFeed(query: QueryPostsDto) {
-    // Auto-cleanup expired posts on every feed fetch
-    await this.cleanupExpiredPosts();
-
     const where: Prisma.PostWhereInput = {};
 
     if (query.type) {
