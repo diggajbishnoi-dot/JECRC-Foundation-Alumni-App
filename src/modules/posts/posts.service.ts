@@ -53,29 +53,18 @@ export class PostsService {
   /**
    * Get paginated post feed with application count
    */
-  async getPostsFeed(query: QueryPostsDto) {
+  async getPostsFeed(query: any) {
     try {
-      const page = Math.max(1, Number(query?.page) || 1);
-      const limit = Math.min(100, Math.max(1, Number(query?.limit) || 20));
-      const skip = (page - 1) * limit;
-      const take = limit;
-
-      const where: Prisma.PostWhereInput = {};
-
-      if (query?.type) {
-        where.type = query.type;
-      }
-
-      if (query?.location) {
-        where.location = { contains: query.location, mode: 'insensitive' };
-      }
-
       const posts = await this.prisma.post.findMany({
         take: 50,
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
-            include: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+              profilePicUrl: true,
               alumniDetails: true,
               studentDetails: true,
             },
@@ -97,7 +86,14 @@ export class PostsService {
       };
     } catch (err: any) {
       console.error('getPostsFeed error:', err);
-      throw err;
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 50,
+        totalPages: 1,
+        debugError: err?.message || String(err),
+      };
     }
   }
 
