@@ -293,13 +293,21 @@ export function DirectoryScreen() {
             ) : results.length === 0 ? (
               <EmptyState
                 icon={<Search size={34} />}
-                title="No one found"
-                copy="Try a different name, or loosen the filters — your people are out here somewhere."
-                cta="Clear filters"
-                onCta={() => {
-                  setFilters({});
-                  setQuery("");
-                }}
+                title={hasActiveFilters || query.trim() ? "No one found" : "No other members registered yet"}
+                copy={
+                  hasActiveFilters || query.trim()
+                    ? "Try a different name or loosen the filters to find members."
+                    : "You are currently logged in. As other alumni and students register or sign in, their real profiles will automatically appear here."
+                }
+                cta={hasActiveFilters || query.trim() ? "Clear filters" : undefined}
+                onCta={
+                  hasActiveFilters || query.trim()
+                    ? () => {
+                        setFilters({});
+                        setQuery("");
+                      }
+                    : undefined
+                }
               />
             ) : (
               <div className="space-y-3">

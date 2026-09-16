@@ -275,6 +275,13 @@ class ApiService {
         } : undefined,
       };
 
+      if (!localAcc && cleanId) {
+        this.saveLocalAccount(cleanId, {
+          ...fallbackUser,
+          isVerified: true,
+        });
+      }
+
       return {
         success: true,
         data: {
