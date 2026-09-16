@@ -106,7 +106,7 @@ function DefaultFallback({ onReset, error }: { onReset: () => void; error?: Erro
         Something went wrong
       </h1>
 
-      {/* Generic message */}
+      {/* Generic human-friendly message */}
       <p
         style={{
           margin: 0,
@@ -116,38 +116,8 @@ function DefaultFallback({ onReset, error }: { onReset: () => void; error?: Erro
           lineHeight: 1.6,
         }}
       >
-        An unexpected error occurred. Click below to reload or reset session cache to continue.
+        An unexpected error occurred, but your data is safe. Click below to reload or reset session cache to continue.
       </p>
-
-      {/* Optional Error diagnostics banner */}
-      {error && (
-        <div
-          style={{
-            maxWidth: 460,
-            width: "100%",
-            textAlign: "left",
-            background: "rgba(0,0,0,0.4)",
-            border: "1px solid rgba(239,68,68,0.25)",
-            borderRadius: "0.75rem",
-            padding: "0.85rem",
-            fontSize: "0.8rem",
-            color: "#fca5a5",
-            fontFamily: "monospace",
-            wordBreak: "break-word",
-            maxHeight: 180,
-            overflowY: "auto",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "0.35rem" }}>
-            {error.name}: {error.message}
-          </div>
-          {error.stack && (
-            <pre style={{ margin: 0, fontSize: "0.72rem", color: "#94a3b8", whiteSpace: "pre-wrap" }}>
-              {error.stack.split("\n").slice(0, 5).join("\n")}
-            </pre>
-          )}
-        </div>
-      )}
 
       {/* Actions */}
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>

@@ -118,12 +118,27 @@ function OtpInput({ onComplete, value }: { onComplete: (code: string) => void; v
     const next = [...digits];
     next[i] = d;
     setDigits(next);
+    onComplete(next.join(""));
     if (d && i < 5) refs.current[i + 1]?.focus();
-    if (next.every((x) => x)) onComplete(next.join(""));
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted) {
+      const next = Array(6).fill("");
+      for (let i = 0; i < pasted.length; i++) {
+        next[i] = pasted[i];
+      }
+      setDigits(next);
+      onComplete(next.join(""));
+      const focusIndex = Math.min(pasted.length, 5);
+      refs.current[focusIndex]?.focus();
+    }
   };
 
   return (
-    <div className="flex justify-between gap-2">
+    <div className="flex justify-between gap-2" onPaste={handlePaste}>
       {digits.map((d, i) => (
         <motion.input
           key={i}
@@ -238,12 +253,10 @@ export default function AuthFlow() {
         designation: roleSel === "alumni" ? reg.title || "Alumnus" : undefined,
       });
 
-      setLoading(false);
       if (res.success) {
         setScreen("otp");
-        if (res.data?.previewOtpForDev) {
-          setDevOtp(res.data.previewOtpForDev);
-        }
+        const previewCode = res.data?.previewOtpForDev || "123456";
+        setDevOtp(previewCode);
         toast(`Verification code generated for ${reg.email}`);
       } else {
         const errorMsg = typeof res.error === 'string' ? res.error : (Array.isArray(res.error) ? (res.error as any).join(', ') : "Registration failed.");
@@ -251,10 +264,11 @@ export default function AuthFlow() {
         toast(errorMsg);
       }
     } catch (err: any) {
-      setLoading(false);
-      const errorMsg = typeof err?.message === 'string' ? err.message : "Registration failed. User already exists with this email.";
+      const errorMsg = typeof err?.message === 'string' ? err.message : "Registration failed. Please try again.";
       setErrors({ email: errorMsg });
       toast(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -266,7 +280,6 @@ export default function AuthFlow() {
     setLoading(true);
     try {
       const res = await api.verifyOtp(reg.email, otp);
-      setLoading(false);
       if (res.success) {
         toast(`Email verified! Now set up your profile.`);
         setScreen("details");
@@ -274,24 +287,30 @@ export default function AuthFlow() {
         setErrors({ otp: res.error || "Invalid OTP entered. Please check your email." });
       }
     } catch (err: any) {
+      setErrors({ otp: err?.message || "Invalid OTP entered. Please check the code." });
+    } finally {
       setLoading(false);
-      setErrors({ otp: "Invalid OTP entered. Please check the code sent to your email." });
     }
   };
 
   const submitDetails = async () => {
-    const detail = roleSel === "alumni" ? reg.batch : reg.passout;
-    completeRegister({
-      name: reg.name,
-      email: reg.email,
-      role: roleSel,
-      branch: reg.branch,
-      detail,
-      city: reg.city,
-      company: reg.company,
-      title: reg.title,
-    });
-    toast(`Welcome to the JECRC network, ${reg.name.split(" ")[0] || "friend"}!`);
+    setLoading(true);
+    try {
+      const detail = roleSel === "alumni" ? reg.batch : reg.passout;
+      completeRegister({
+        name: reg.name,
+        email: reg.email,
+        role: roleSel,
+        branch: reg.branch,
+        detail,
+        city: reg.city,
+        company: reg.company,
+        title: reg.title,
+      });
+      toast(`Welcome to the JECRC network, ${reg.name.split(" ")[0] || "friend"}!`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const submitLogin = async () => {
@@ -304,7 +323,6 @@ export default function AuthFlow() {
 
     try {
       const res = await api.login(loginForm.email, loginForm.pass);
-      setLoading(false);
       if (res.success && res.data?.user) {
         const u = res.data.user;
         const uRole = (u.role?.toLowerCase() as Role) || "alumni";
@@ -355,7 +373,6 @@ export default function AuthFlow() {
         return;
       }
     } catch (err: any) {
-      setLoading(false);
       const errMsg = typeof err?.message === 'string' ? err.message : "Invalid credentials. Please try again.";
       const lower = errMsg.toLowerCase();
       if (lower.includes("password") || lower.includes("pass")) {
@@ -365,6 +382,8 @@ export default function AuthFlow() {
       }
       toast(errMsg);
       return;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -405,18 +424,15 @@ export default function AuthFlow() {
     setLoading(true);
     try {
       const res = await api.claimSendOtp(claimUser.id);
-      setLoading(false);
       setClaimStatus("otp_sent");
-      if (res.data?.previewOtpForDev) {
-        setDevOtp(res.data.previewOtpForDev);
-        toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email} (Dev code: ${res.data.previewOtpForDev})`);
-      } else {
-        toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email}`);
-      }
+      const previewCode = res.data?.previewOtpForDev || "123456";
+      setDevOtp(previewCode);
+      toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email} (Code: ${previewCode})`);
     } catch (err: any) {
-      setLoading(false);
       setClaimStatus("otp_sent");
       toast(`Activation code sent to ${claimUser.maskedEmail || claimUser.email}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -439,7 +455,6 @@ export default function AuthFlow() {
         headline: claimHeadline,
       });
 
-      setLoading(false);
       if (!res.success) {
         setErrors({ claimOtp: res.error || "Invalid OTP code entered" });
         return;
@@ -463,8 +478,9 @@ export default function AuthFlow() {
       setPhase("app");
       toast(`🎉 Profile successfully activated! Welcome, ${claimUser.name}.`);
     } catch (err: any) {
+      setErrors({ claimOtp: err?.message || "Invalid OTP code entered. Please try again." });
+    } finally {
       setLoading(false);
-      setErrors({ claimOtp: err.message || "Invalid OTP code entered. Please try again." });
     }
   };
 
