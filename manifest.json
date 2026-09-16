@@ -1,0 +1,36 @@
+{
+  "short_name": "JECRC Alumni",
+  "name": "JECRC Foundation — Alumni Meet",
+  "description": "Official networking app for JECRC Foundation alumni, students, and faculty.",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/jecrc-logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0F2A5E",
+  "theme_color": "#0F2A5E",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "categories": ["education", "social", "networking"]
+}

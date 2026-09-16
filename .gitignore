@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+dist/
+**/dist/
+fontend/**/dist/
+build/
+*.js.map
+*.d.ts
+!.d.ts
+prisma/seed.js
+
+# Environment variables & docker overrides
+.env
+.env.local
+.env.*.local
+!.env.example
+docker-compose.override.yml
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files & artifacts
+artifacts/
+**/artifacts/
+tmp/
+temp/
+*.tsbuildinfo
+
