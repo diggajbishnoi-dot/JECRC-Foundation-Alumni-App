@@ -58,7 +58,18 @@ export class PostsService {
       const posts = await this.prisma.post.findMany({
         take: 50,
         orderBy: { createdAt: 'desc' },
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          type: true,
+          title: true,
+          description: true,
+          company: true,
+          location: true,
+          deadline: true,
+          attachmentUrl: true,
+          createdAt: true,
+          updatedAt: true,
           user: {
             select: {
               id: true,
@@ -74,6 +85,7 @@ export class PostsService {
 
       const formattedPosts = posts.map((p: any) => ({
         ...p,
+        pay: p.pay || 'Undisclosed',
         applicantCount: 0,
       }));
 
