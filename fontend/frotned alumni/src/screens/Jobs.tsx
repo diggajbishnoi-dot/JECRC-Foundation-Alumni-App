@@ -10,16 +10,17 @@ const modeFilters = ["Any mode", "Onsite", "Remote", "Hybrid"] as const;
 
 /* ============== JOBS BOARD ============== */
 export function JobsScreen() {
-  const { allJobs, push, pop, toast, role, appliedJobIds } = useStore();
+  const { allJobs, syncJobs, push, pop, toast, role, appliedJobIds } = useStore();
   const [type, setType] = useState<(typeof typeFilters)[number]>("All");
   const [mode, setMode] = useState<(typeof modeFilters)[number]>("Any mode");
   const [loading, setLoading] = useState(true);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 900);
+    syncJobs?.();
+    const t = setTimeout(() => setLoading(false), 600);
     return () => clearTimeout(t);
-  }, []);
+  }, [syncJobs]);
 
   const hasActiveFilters = type !== "All" || mode !== "Any mode";
 

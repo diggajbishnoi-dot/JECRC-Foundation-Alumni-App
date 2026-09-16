@@ -152,7 +152,7 @@ function OtpInput({ onComplete, value }: { onComplete: (code: string) => void; v
 
 /* ==================================================== */
 export default function AuthFlow() {
-  const { setPhase, toast, completeRegister, setRole, setMe } = useStore();
+  const { setPhase, toast, completeRegister, setRole, setMe, syncJobs } = useStore();
   const [screen, setScreen] = useState<AuthScreen>("welcome");
   const [reg, setReg] = useState({
     name: "",
@@ -341,6 +341,7 @@ export default function AuthFlow() {
 
         setMe(mappedMe);
         setPhase("app");
+        syncJobs?.();
         toast(`Welcome back, ${u.name.split(" ")[0] || "Member"}!`);
         return;
       } else {

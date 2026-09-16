@@ -31,7 +31,7 @@ export class PostsService {
         company: dto.company || null,
         location: dto.location || null,
         pay: dto.pay || null,
-        deadline: dto.deadline ? new Date(dto.deadline) : null,
+        deadline: dto.deadline && !isNaN(new Date(dto.deadline).getTime()) ? new Date(dto.deadline) : null,
         attachmentUrl: dto.attachmentUrl || null,
       },
       include: {

@@ -84,6 +84,7 @@ interface Store {
   unlockChat: (userId: string) => void;
   // jobs
   allJobs: Job[];
+  syncJobs: () => Promise<void>;
   addJob: (j: Job) => void;
   applyJob: (
     jobId: string,
@@ -182,6 +183,17 @@ const saveReadNotifId = (notifId: string) => {
   } catch (e) {}
 };
 
+const getSavedJobs = (): Job[] => {
+  try {
+    const raw = localStorage.getItem("jecrc_all_jobs_feed");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [];
+};
+
 const getSavedMeProfile = (): Person => {
   try {
     const raw = localStorage.getItem("user_me_profile_latest");
@@ -234,7 +246,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [sent, setSent] = useState<string[]>([]);
   const [activeChat, setActiveChatState] = useState<string | null>(null);
   const [typing, setTyping] = useState<Record<string, boolean>>({});
-  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [allJobs, setAllJobs] = useState<Job[]>(getSavedJobs);
   const meRef = useRef<Person>(me);
   meRef.current = me;
   const [allThreads, setAllThreads] = useState<Thread[]>([]);
@@ -492,11 +504,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }).catch(() => {});
   }, []);
 
+  const syncJobs = useCallback(async () => {
+    try {
+      const res = await api.getPosts();
+      if (res.success && Array.isArray(res.data?.items)) {
+        const currentUserId = meRef.current?.id;
+        const backendJobs: Job[] = res.data.items.map((item: any) => ({
+          id: item.id,
+          posterId: item.user?.id || item.userId,
+          title: item.title,
+          company: item.company || "Enterprise Partner",
+          location: item.location || "Bengaluru / Hybrid",
+          type: item.type === "INTERNSHIP" ? "Internship" : "Full-time",
+          mode: "Hybrid",
+          pay: item.pay || "Undisclosed",
+          skills: ["Cloud", "System Architecture", "Engineering"],
+          postedBy: item.user?.name || "Alumni Member",
+          postedAgo: "Recently",
+          deadline: item.deadline ? new Date(item.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Rolling",
+          applicants: item.applicantCount ?? 0,
+          branch: item.user?.alumniDetails?.branch || item.user?.studentDetails?.branch || "CSE",
+          desc: item.description,
+          mine: (item.user?.id || item.userId) === currentUserId,
+        }));
+        setAllJobs((existing) => {
+          const merged = [...backendJobs];
+          existing.forEach((ej) => {
+            if (!merged.some((bj) => bj.id === ej.id || (bj.title === ej.title && bj.company === ej.company))) {
+              merged.push(ej);
+            }
+          });
+          try {
+            localStorage.setItem("jecrc_all_jobs_feed", JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
+      }
+    } catch (e) {}
+  }, []);
+
   // Sync state with Backend API
   useEffect(() => {
-    // Ensure client device has an E2E keypair generated & public key uploaded
-    if (typeof window !== "undefined" && !sessionStorage.getItem("e2e_private_key_jwk")) {
-      generateE2EKeyPair().then((keys) => {
+    // 0. Auto-create client E2E keypair if none exists
+    const existingPub = sessionStorage.getItem("e2e_public_key_hex");
+    if (!existingPub) {
+      generateClientKeyPair().then((keys) => {
         sessionStorage.setItem("e2e_private_key_jwk", JSON.stringify(keys.privateKeyJwk));
         sessionStorage.setItem("e2e_public_key_hex", keys.publicKeyRawHex);
         if (api.getToken()) {
@@ -543,6 +595,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       });
       syncConnections();
+      syncJobs();
     }
 
       // Connect Socket.IO for real-time WebSocket messaging
@@ -552,6 +605,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (socket) {
           socket.on("connect", () => {
             syncConnections();
+            syncJobs();
             chatsRef.current.forEach((c) => {
               if (c.userId) {
                 syncMessages(c.userId);
@@ -598,24 +652,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             } else if (content.startsWith("[Document:")) {
               kind = "doc";
               const match = content.match(/\[Document:\s*(.*?)\]/);
-              meta = { name: match ? match[1] : "Document.pdf", size: "Document" };
+              meta = { name: match ? match[1] : "Document" };
             }
-
-            const d = new Date(m.createdAt || Date.now());
-            const time = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 
             const newMsg: ChatMsg = {
               id: m.id,
               fromMe: isFromMe,
-              kind,
-              text: kind === "text" ? content : "",
-              meta,
-              time,
+              text: content,
+              time: formatRelativeTime(m.createdAt),
               status: m.status?.toLowerCase() === "read" ? "read" : m.status?.toLowerCase() === "delivered" ? "delivered" : "sent",
+              kind,
+              meta,
             };
 
-            const chatId = `c_${partnerId}`;
-            const isCurrentlyInThisChat = activeChatRef.current === chatId || activeChatRef.current === partnerId;
+            const isCurrentlyInThisChat = activeChatRef.current === partnerId || activeChatRef.current === `c_${partnerId}`;
 
             if (!isFromMe) {
               socket.emit("messageDelivered", { messageId: m.id });
@@ -628,13 +678,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
 
             setChats((prev) => {
-              const exists = prev.find((c) => c.userId === partnerId || c.id === chatId);
+              const exists = prev.find((c) => c.userId === partnerId || c.id === `c_${partnerId}`);
               if (exists) {
                 const msgsExist = exists.msgs.some((msg) => msg.id === m.id);
                 const updatedMsgs = msgsExist ? exists.msgs : [...exists.msgs, newMsg];
                 const updatedUnread = isCurrentlyInThisChat ? 0 : (exists.unread || 0) + (isFromMe ? 0 : 1);
                 return prev.map((c) =>
-                  c.userId === partnerId || c.id === chatId
+                  c.userId === partnerId || c.id === `c_${partnerId}`
                     ? { ...c, locked: false, msgs: updatedMsgs, unread: updatedUnread }
                     : c
                 );
@@ -642,7 +692,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 return [
                   ...prev,
                   {
-                    id: chatId,
+                    id: `c_${partnerId}`,
                     userId: partnerId,
                     online: false,
                     lastSeen: "Offline",
@@ -688,6 +738,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           socket.on("notification", () => {
             syncConnections();
+            syncJobs();
           });
         }
       }
@@ -695,6 +746,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const onFocus = () => {
       if (api.getToken()) {
         syncConnections();
+        syncJobs();
         chatsRef.current.forEach((c) => {
           if (c.userId) {
             syncMessages(c.userId);
@@ -706,31 +758,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("focus", onFocus);
 
     // 1. Sync Jobs / Posts
-    api.getPosts().then((res) => {
-      if (res.success && Array.isArray(res.data?.items)) {
-        const backendJobs: Job[] = res.data.items.map((item: any) => ({
-          id: item.id,
-          posterId: item.user?.id || item.userId,
-          title: item.title,
-          company: item.company || "Enterprise Partner",
-          location: item.location || "Bengaluru / Hybrid",
-          type: item.type === "INTERNSHIP" ? "Internship" : "Full-time",
-          mode: "Hybrid",
-          pay: item.pay || "Undisclosed",
-          skills: ["Cloud", "System Architecture", "Engineering"],
-          postedBy: item.user?.name || "Alumni Cell",
-          postedAgo: "Recently",
-          deadline: "Rolling",
-          applicants: item.applicantCount ?? 0,
-          branch: "CSE",
-          desc: item.description,
-          mine: (item.user?.id || item.userId) === me.id,
-        }));
-        if (backendJobs.length > 0) {
-          setAllJobs((existing) => [...backendJobs, ...existing.filter((j) => !backendJobs.some((bj) => bj.id === j.id))]);
-        }
-      }
-    });
+    syncJobs();
 
     // 2. Sync Discussions
     api.getDiscussions().then((res) => {
@@ -1286,7 +1314,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
 
   const addJob = useCallback((j: Job) => {
-    setAllJobs((js) => [j, ...js]);
+    setAllJobs((js) => {
+      const updated = [j, ...js.filter((x) => x.id !== j.id)];
+      try {
+        localStorage.setItem("jecrc_all_jobs_feed", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
     api.createPost({
       title: j.title,
       description: j.desc,
@@ -1294,12 +1329,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       company: j.company,
       location: j.location,
       pay: j.pay,
-      deadline: j.deadline || undefined,
+      deadline: j.deadline && !isNaN(new Date(j.deadline).getTime()) ? j.deadline : undefined,
     }).then((res) => {
-      if (res.success) {
+      if (res.success && res.data?.id) {
+        const backendId = res.data.id;
+        setAllJobs((js) => {
+          const updated = js.map((item) => (item.id === j.id ? { ...item, id: backendId, posterId: meRef.current?.id || item.posterId, mine: true } : item));
+          try {
+            localStorage.setItem("jecrc_all_jobs_feed", JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
         toast("Job synced with backend!");
       }
-    });
+    }).catch(() => {});
   }, [toast]);
 
   const applyJob = useCallback(
@@ -1563,7 +1606,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       tab, goTab, stack, push, pop, clearStack, toasts, toast,
       conn, requestConnect, acceptConn, rejectConn, received, sent,
       chats, activeChat, setActiveChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence, typing, unlockChat,
-      allJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
+      allJobs, syncJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted, toggleUp, addThread, deleteThread, addReply, deleteReply,
       joined, toggleJoin, mentorReq, requestMentor, mentorOptIn, setMentorOptIn,
       notifList, markNotif, markAllNotifs, unreadNotifs, totalUnreadChats,
       logout,
@@ -1574,7 +1617,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       phase, role, me, completeRegister, tab, goTab, stack, push, pop, clearStack,
       toasts, toast, conn, requestConnect, acceptConn, rejectConn, received, sent,
       chats, activeChat, sendChat, sendTyping, sendStopTyping, syncMessages, syncPresence,
-      typing, unlockChat, allJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted,
+      typing, unlockChat, allJobs, syncJobs, addJob, applyJob, fetchApplicationsForJob, appliedJobIds, allThreads, upvoted,
       toggleUp, addThread, deleteThread, addReply, deleteReply, joined, toggleJoin,
       mentorReq, requestMentor, mentorOptIn, notifList, markNotif, markAllNotifs,
       unreadNotifs, totalUnreadChats, logout, deleteAccount, updateProfile,
