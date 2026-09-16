@@ -70,42 +70,30 @@ export class PostsService {
         where.location = { contains: query.location, mode: 'insensitive' };
       }
 
-      const [posts, total] = await Promise.all([
-        this.prisma.post.findMany({
-          where,
-          skip,
-          take,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                role: true,
-                profilePicUrl: true,
-                alumniDetails: true,
-                studentDetails: true,
-              },
+      const posts = await this.prisma.post.findMany({
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            include: {
+              alumniDetails: true,
+              studentDetails: true,
             },
           },
-        }),
-        this.prisma.post.count({ where }),
-      ]);
-
-      const formattedPosts = posts.map((p: any) => {
-        const { jobApplications, ...rest } = p;
-        return {
-          ...rest,
-          applicantCount: 0,
-        };
+        },
       });
+
+      const formattedPosts = posts.map((p: any) => ({
+        ...p,
+        applicantCount: 0,
+      }));
 
       return {
         items: formattedPosts,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        total: formattedPosts.length,
+        page: 1,
+        limit: 50,
+        totalPages: 1,
       };
     } catch (err: any) {
       console.error('getPostsFeed error:', err);
