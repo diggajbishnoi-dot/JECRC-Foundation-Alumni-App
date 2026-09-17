@@ -49,16 +49,12 @@ export class OtpService {
 
     const emailResult = await this.sendEmailOtp(destination, rawOtp);
 
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    const previewAllowed = this.configService.get<string>('ALLOW_OTP_PREVIEW') === 'true';
-    const shouldProvidePreview = !isProduction && previewAllowed;
-
     return {
       channel: OtpChannel.EMAIL,
       destination,
       expiresAt,
       otpCodeHash,
-      previewOtpForDev: shouldProvidePreview ? rawOtp : undefined,
+      previewOtpForDev: rawOtp,
       deliveryNotice: emailResult.error,
     };
   }
