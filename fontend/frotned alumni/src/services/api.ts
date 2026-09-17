@@ -122,16 +122,18 @@ class ApiService {
 
         if (!res.ok) {
           let errorMsg = '';
-          if (Array.isArray(json?.message)) {
+          if (Array.isArray(json?.error)) {
+            errorMsg = json.error.join(', ');
+          } else if (Array.isArray(json?.message)) {
             errorMsg = json.message.join(', ');
-          } else if (typeof json?.message === 'string' && json.message.trim()) {
-            errorMsg = json.message;
           } else if (typeof json?.error === 'string' && json.error.trim() && json.error !== 'Bad Request' && json.error !== 'Internal Server Error') {
             errorMsg = json.error;
-          } else if (typeof json?.error === 'string') {
+          } else if (typeof json?.message === 'string' && json.message.trim()) {
+            errorMsg = json.message;
+          } else if (typeof json?.error === 'string' && json.error.trim()) {
             errorMsg = json.error;
           } else {
-            errorMsg = `HTTP ${res.status}: ${res.statusText}`;
+            errorMsg = `HTTP ${res.status}: ${res.statusText || 'Bad Request'}`;
           }
           return {
             success: false,

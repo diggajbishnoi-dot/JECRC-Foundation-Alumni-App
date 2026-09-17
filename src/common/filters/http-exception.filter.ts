@@ -67,14 +67,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = 'An unexpected internal server error occurred';
     }
 
-    // Safety rule: Never expose cryptographic keys or raw message content in errors
-    if (typeof message === 'string' && message.includes('encryptedContent')) {
-      message = 'Cryptographic message operation failed';
+    let cleanErrorMessage = 'Error occurred';
+    if (Array.isArray(message)) {
+      cleanErrorMessage = message.join(', ');
+    } else if (typeof message === 'object' && message !== null) {
+      cleanErrorMessage = (message as any).message || JSON.stringify(message);
+    } else {
+      cleanErrorMessage = String(message || 'Error occurred');
+    }
+
+    if (cleanErrorMessage.includes('encryptedContent')) {
+      cleanErrorMessage = 'Cryptographic message operation failed';
     }
 
     response.status(status).json({
       success: false,
-      error: message,
+      error: cleanErrorMessage,
+      message: cleanErrorMessage,
       statusCode: status,
       timestamp: new Date().toISOString(),
     });
