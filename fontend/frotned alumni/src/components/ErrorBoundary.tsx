@@ -50,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 /* ---------- default fallback UI ---------- */
-function DefaultFallback({ onReset, error }: { onReset: () => void; error?: Error }) {
+function DefaultFallback({ onReset, error: _error }: { onReset: () => void; error?: Error }) {
   const handleClearCache = () => {
     try {
       localStorage.clear();

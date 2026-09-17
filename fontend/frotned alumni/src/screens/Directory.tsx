@@ -497,13 +497,12 @@ export function ConnectButton({
 
 /* ============== PROFILE ============== */
 export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolean }) {
-  const { pop, push, me, updateProfile, toast, conn, requestConnect, requestMentor, mentorReq, chats, goTab, role, allJobs, allThreads, joinedGroups, unlockChat } = useStore();
+  const { pop, push, me, updateProfile, toast, conn, requestConnect, requestMentor, mentorReq, goTab, role, allJobs, allThreads, unlockChat } = useStore();
   const isMe = !id || id === "me" || id === me.id;
   const p: Person = isMe ? me : personById(id);
   const [tabIdx, setTabIdx] = useState(0);
   const state = conn[p.id] ?? "none";
   const unlocked = state === "connected" || (mentorReq[p.id] ?? "none") === "active";
-  const chatFor = chats.find((c) => c.userId === p.id);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({

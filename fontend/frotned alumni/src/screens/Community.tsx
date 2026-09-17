@@ -6,7 +6,7 @@ import {
   BadgeCheck, UserPlus, Sparkles,
 } from "lucide-react";
 import { useStore, personById, allGroups, registerDynamicUser } from "../state/store";
-import { categories, Thread, Person } from "../data/mock";
+import { categories, Thread, Person, people } from "../data/mock";
 import { api } from "../services/api";
 import { Btn, EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, Switch, Tag } from "../components/ui";
 
