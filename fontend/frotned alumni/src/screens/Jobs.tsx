@@ -285,7 +285,7 @@ export function JobsScreen() {
 
 /* ============== JOB DETAIL ============== */
 export function JobDetailScreen({ id }: { id: string }) {
-  const { allJobs, pop, me, applyJob, fetchApplicationsForJob, appliedJobIds, push, toast } = useStore();
+  const { allJobs, pop, me, applyJob, fetchApplicationsForJob, appliedJobIds, push, toast, conn } = useStore();
   const j = allJobs.find((x) => x.id === id);
 
   // Student apply state
@@ -308,6 +308,19 @@ export function JobDetailScreen({ id }: { id: string }) {
   // Alumni applicants view state
   const [applicantsDrawerOpen, setApplicantsDrawerOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Sync application form with logged-in user profile
+  useEffect(() => {
+    if (me && me.name && me.id !== "me") {
+      setForm((prev) => ({
+        ...prev,
+        fullName: me.name,
+        email: me.email || prev.email,
+        branch: me.branch || prev.branch,
+        graduationYear: me.batch ? parseInt(me.batch) || 2027 : prev.graduationYear,
+      }));
+    }
+  }, [me]);
 
   // STRICT: Only the exact alumni who posted this job can see applicant details
   const isPoster = j ? (j.posterId === me.id || j.mine === true) : false;
@@ -715,22 +728,24 @@ export function JobDetailScreen({ id }: { id: string }) {
 
                 {/* Action Controls */}
                 <div className="flex items-center gap-2 pt-2 border-t border-line">
-                  <button
-                    onClick={() => {
-                      setApplicantsDrawerOpen(false);
-                      push({ name: "chatRoom", id: `c_${selectedApplicant.studentId}` });
-                    }}
-                    className="btn-press flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-navy py-2.5 text-[12.5px] font-bold text-white shadow-sm cursor-pointer"
-                  >
-                    <MessageCircle size={14} />
-                    <span>Message Student</span>
-                  </button>
+                  {selectedApplicant.studentId && conn[selectedApplicant.studentId] === "connected" && (
+                    <button
+                      onClick={() => {
+                        setApplicantsDrawerOpen(false);
+                        push({ name: "chatRoom", id: `c_${selectedApplicant.studentId}` });
+                      }}
+                      className="btn-press flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-navy py-2.5 text-[12.5px] font-bold text-white shadow-sm cursor-pointer"
+                    >
+                      <MessageCircle size={14} />
+                      <span>Message Student</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setApplicantsDrawerOpen(false);
                       push({ name: "profile", id: selectedApplicant.studentId });
                     }}
-                    className="btn-press rounded-xl bg-white border border-line px-4 py-2.5 text-[12.5px] font-bold text-sub hover:text-navy cursor-pointer"
+                    className="btn-press flex-1 rounded-xl bg-white border border-line px-4 py-2.5 text-[12.5px] font-bold text-sub hover:text-navy cursor-pointer"
                   >
                     View Full Profile
                   </button>

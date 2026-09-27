@@ -658,16 +658,12 @@ export function MentorshipScreen() {
           });
           setMentors(mapped);
         } else {
-          const mentorPool = people.filter((p) => p.mentor);
-          mentorPool.forEach((p) => registerDynamicUser(p));
-          setMentors(mentorPool);
+          setMentors([]);
         }
       })
       .catch(() => {
         setLoading(false);
-        const mentorPool = people.filter((p) => p.mentor);
-        mentorPool.forEach((p) => registerDynamicUser(p));
-        setMentors(mentorPool);
+        setMentors([]);
       });
   }, []);
 

@@ -2,11 +2,16 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { JecrcLogo } from "../components/visuals";
 import { useStore } from "../state/store";
+import { api } from "../services/api";
 
 export default function Splash() {
   const { setPhase } = useStore();
 
   useEffect(() => {
+    // If user is already logged in on this device, store will sync database profile and enter "app"
+    if (api.getToken()) {
+      return;
+    }
     const t = setTimeout(() => setPhase("onboard"), 2200);
     return () => clearTimeout(t);
   }, [setPhase]);

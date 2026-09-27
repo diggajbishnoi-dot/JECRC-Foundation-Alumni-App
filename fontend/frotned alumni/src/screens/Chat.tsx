@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, ShieldCheck, Camera, Image as ImageIcon, FileText, Send,
-  Check, CheckCheck, ChevronLeft, Plus, MessageCircle, Download, Trash2, Copy, Eye, X,
+  Check, CheckCheck, ChevronLeft, Plus, MessageCircle, Download, Trash2, Copy, Eye, X, Lock,
 } from "lucide-react";
 import { useStore, personById, ChatMsg } from "../state/store";
-import { EmptyState, InitialsAvatar, ListSkeleton, Sheet, TypingDots } from "../components/ui";
+import { EmptyState, InitialsAvatar, ListSkeleton, ScreenHeader, Sheet, TypingDots } from "../components/ui";
 import { api } from "../services/api";
+import { ConnectButton } from "./Directory";
 
 function Ticks({ status }: { status: ChatMsg["status"] }) {
   if (status === "sent") return <Check size={14} className="text-white/60" />;
@@ -54,7 +55,7 @@ const compressChatImage = (file: File): Promise<string> => {
 
 /* ============== CHAT LIST ============== */
 export function ChatListScreen() {
-  const { chats, push, setActiveChat, syncMessages, syncPresence, unlockChat, me } = useStore();
+  const { chats, push, setActiveChat, syncMessages, syncPresence, unlockChat, me, conn, toast } = useStore();
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [newChatSheetOpen, setNewChatSheetOpen] = useState(false);
@@ -77,19 +78,65 @@ export function ChatListScreen() {
 
   useEffect(() => {
     if (newChatSheetOpen) {
-      api.searchUsers(memberSearch).then((res) => {
-        if (res.success && Array.isArray(res.data?.items)) {
-          const myId = me?.id;
-          const filteredList = res.data.items.filter((u: any) => u && u.id !== myId && u.id !== "me" && u.email !== me?.email);
-          setAvailableMembers(filteredList);
-        }
-      }).catch(() => {});
-    }
-  }, [newChatSheetOpen, memberSearch, me]);
+      const connectedUserIds = Object.entries(conn)
+        .filter(([, status]) => status === "connected")
+        .map(([id]) => id);
 
-  const filtered = chats.filter((c) => (personById(c.userId)?.name || "").toLowerCase().includes(q.toLowerCase()));
+      api.getConnections().then((res) => {
+        const items = Array.isArray(res.data?.items) ? res.data.items : (Array.isArray(res.data) ? res.data : []);
+        const backendPeers = items
+          .map((item: any) => item.peer || (item.requester?.id === me?.id ? item.receiver : item.requester))
+          .filter((p: any) => p && p.id && p.id !== me?.id && p.id !== "me");
+
+        // Merge backend connections and store connections
+        const allConnectedList: any[] = [...backendPeers];
+        connectedUserIds.forEach((uid) => {
+          if (!allConnectedList.some((p) => p.id === uid)) {
+            const p = personById(uid);
+            if (p && p.id && p.id !== me?.id && p.id !== "me") {
+              allConnectedList.push(p);
+            }
+          }
+        });
+
+        // Filter: STRICTLY only connected members
+        const searchLower = memberSearch.trim().toLowerCase();
+        const filteredList = allConnectedList.filter((p: any) => {
+          const isPeerConnected = conn[p.id] === "connected" || backendPeers.some((bp) => bp.id === p.id);
+          if (!isPeerConnected) return false;
+
+          if (!searchLower) return true;
+          return (
+            (p.name || "").toLowerCase().includes(searchLower) ||
+            (p.alumniDetails?.branch || p.studentDetails?.branch || p.branch || "").toLowerCase().includes(searchLower) ||
+            (p.alumniDetails?.currentCompany || p.company || "").toLowerCase().includes(searchLower)
+          );
+        });
+        setAvailableMembers(filteredList);
+      }).catch(() => {
+        const searchLower = memberSearch.trim().toLowerCase();
+        const localList = connectedUserIds.map((id) => personById(id)).filter((p) => {
+          if (!p || !p.id || p.id === me?.id || p.id === "me") return false;
+          if (conn[p.id] !== "connected") return false;
+          if (!searchLower) return true;
+          return (p.name || "").toLowerCase().includes(searchLower) || (p.headline || "").toLowerCase().includes(searchLower);
+        });
+        setAvailableMembers(localList);
+      });
+    }
+  }, [newChatSheetOpen, memberSearch, me, conn]);
+
+  const filtered = chats.filter((c) => {
+    const isConnected = conn[c.userId] === "connected";
+    if (!isConnected) return false;
+    return (personById(c.userId)?.name || "").toLowerCase().includes(q.toLowerCase());
+  });
 
   const startChatWith = (userId: string) => {
+    if (conn[userId] !== "connected") {
+      toast("First connect with profile's user to start chatting.");
+      return;
+    }
     unlockChat(userId);
     setNewChatSheetOpen(false);
     setActiveChat(`c_${userId}`);
@@ -136,19 +183,10 @@ export function ChatListScreen() {
             <EmptyState
               icon={<MessageCircle size={32} />}
               title="No active conversations"
-              copy="Start a secure, direct encrypted chat with any alumnus or student from the network."
-              cta="Start a Chat"
-              onCta={() => setNewChatSheetOpen(true)}
+              copy="Only connected alumni and students can message each other. Connect with members in the Directory to start chatting."
+              cta="Browse Directory"
+              onCta={() => push({ name: "directory" })}
             />
-            <div className="mt-2 text-center">
-              <button
-                type="button"
-                onClick={() => push({ name: "directory" })}
-                className="text-[12.5px] font-bold text-navy hover:underline cursor-pointer py-2 px-3"
-              >
-                Or browse all members in Directory →
-              </button>
-            </div>
           </div>
         ) : (
           filtered.map((c) => {
@@ -200,42 +238,74 @@ export function ChatListScreen() {
       {/* New Chat Sheet */}
       <Sheet open={newChatSheetOpen} onClose={() => setNewChatSheetOpen(false)} title="Start New Conversation">
         <div className="space-y-3 pb-6">
+          <p className="text-[12px] text-sub">
+            Only accepted connections can be messaged. Connect with alumni or students first to unlock chatting.
+          </p>
           <div className="card flex items-center gap-2.5 px-3.5 py-2">
             <Search size={16} className="text-sub" />
             <input
               value={memberSearch}
               onChange={(e) => setMemberSearch(e.target.value)}
-              placeholder="Search member by name, branch, company…"
+              placeholder="Search connected members…"
               className="w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-sub/60"
             />
           </div>
 
           <div className="max-h-[340px] overflow-y-auto no-scrollbar space-y-1.5 pt-1">
             {availableMembers.length === 0 ? (
-              <div className="py-8 text-center text-[13px] text-sub">
-                No members found matching "{memberSearch}".
+              <div className="py-8 text-center text-[13px] text-sub space-y-2">
+                <p>
+                  {memberSearch.trim()
+                    ? `No connected members found matching "${memberSearch}".`
+                    : "You don't have any connections yet."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewChatSheetOpen(false);
+                    push({ name: "directory" });
+                  }}
+                  className="text-xs font-bold text-navy hover:underline cursor-pointer"
+                >
+                  Browse Directory to Connect →
+                </button>
               </div>
             ) : (
               availableMembers.map((m: any) => {
+                const isConnected = conn[m.id] === "connected";
                 const headline = m.alumniDetails?.designation
                   ? `${m.alumniDetails.designation} @ ${m.alumniDetails.currentCompany || "Enterprise"}`
-                  : `${m.role === "ALUMNI" ? "Alumnus" : "Student"} · ${m.alumniDetails?.branch || m.studentDetails?.branch || "CSE"}`;
+                  : `${m.role === "ALUMNI" ? "Alumnus" : "Student"} · ${m.alumniDetails?.branch || m.studentDetails?.branch || m.branch || "CSE"}`;
                 return (
-                  <button
+                  <div
                     key={m.id}
-                    type="button"
-                    onClick={() => startChatWith(m.id)}
-                    className="card flex w-full items-center gap-3 p-3 text-left hover:border-navy/30 transition-colors cursor-pointer"
+                    className="card flex w-full items-center gap-3 p-3 text-left transition-colors"
                   >
                     <InitialsAvatar name={m.name || "Member"} size={42} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-bold text-ink">{m.name}</p>
                       <p className="truncate text-[12px] text-sub">{headline}</p>
                     </div>
-                    <span className="rounded-full bg-navy/10 px-2.5 py-1 text-[11px] font-bold text-navy">
-                      Message
-                    </span>
-                  </button>
+                    {isConnected ? (
+                      <button
+                        type="button"
+                        onClick={() => startChatWith(m.id)}
+                        className="rounded-full bg-navy px-3 py-1.5 text-[11.5px] font-bold text-white shadow-sm hover:bg-navy-700 cursor-pointer"
+                      >
+                        Message
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toast("First connect with profile's user to start chatting.");
+                        }}
+                        className="rounded-full bg-page border border-line px-2.5 py-1 text-[11px] font-bold text-sub cursor-pointer hover:bg-slate-100"
+                      >
+                        Connect first
+                      </button>
+                    )}
+                  </div>
                 );
               })
             )}
@@ -248,9 +318,55 @@ export function ChatListScreen() {
 
 /* ============== CHAT ROOM ============== */
 export function ChatRoomScreen({ id }: { id: string }) {
-  const { pop, chats, sendChat, syncMessages, syncPresence, typing, setActiveChat, deleteMessage, toast } = useStore();
-  const chat = chats.find((c) => c.id === id || c.userId === id) || { id, userId: id, online: false, lastSeen: "Offline", unread: 0, msgs: [] };
-  const p = personById(chat.userId);
+  const { pop, chats, sendChat, syncMessages, syncPresence, typing, setActiveChat, deleteMessage, toast, conn, requestConnect, acceptConn } = useStore();
+  const targetUserId = id.startsWith("c_") ? id.slice(2) : id;
+  const chat = chats.find((c) => c.id === id || c.userId === targetUserId || c.userId === id) || {
+    id: id.startsWith("c_") ? id : `c_${id}`,
+    userId: targetUserId,
+    online: false,
+    lastSeen: "Offline",
+    unread: 0,
+    msgs: [],
+  };
+  const p = personById(targetUserId);
+  const isConnected = conn[targetUserId] === "connected";
+
+  if (!isConnected) {
+    return (
+      <div className="relative flex h-full flex-col bg-page">
+        <ScreenHeader title={p?.name || "Conversation"} onBack={pop} />
+        <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 shadow-sm border border-amber-200 mb-4">
+            <Lock size={30} />
+          </div>
+          <h2 className="font-display text-[20px] font-bold text-ink">Connection Required</h2>
+          <p className="mt-2 max-w-[290px] text-[13.5px] leading-relaxed text-sub">
+            First connect with profile's user to start chatting. Messages can only be sent between connected members.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3 w-full max-w-[240px]">
+            <ConnectButton
+              state={conn[targetUserId] ?? "none"}
+              onConnect={() => {
+                requestConnect(targetUserId);
+                toast("Connection request sent.");
+              }}
+              onAccept={() => {
+                acceptConn(targetUserId);
+                toast("Connection accepted! You can now chat.");
+              }}
+            />
+            <button
+              type="button"
+              onClick={pop}
+              className="text-xs font-semibold text-sub hover:text-ink mt-2 cursor-pointer"
+            >
+              Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const [text, setText] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<ChatMsg | null>(null);
@@ -288,6 +404,10 @@ export function ChatRoomScreen({ id }: { id: string }) {
 
   const send = () => {
     if (!text.trim()) return;
+    if (!isConnected) {
+      toast("You can only message members you are connected with.");
+      return;
+    }
     sendChat(chat.id, { fromMe: true, kind: "text", text: text.trim() });
     setText("");
   };
@@ -296,6 +416,10 @@ export function ChatRoomScreen({ id }: { id: string }) {
     e: React.ChangeEvent<HTMLInputElement>,
     type: "camera" | "gallery" | "doc"
   ) => {
+    if (!isConnected) {
+      toast("You can only send attachments to connected members.");
+      return;
+    }
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
@@ -505,27 +629,46 @@ export function ChatRoomScreen({ id }: { id: string }) {
       </div>
 
       {/* input */}
-      <div className="z-20 flex items-end gap-2 bg-page px-3 pb-6 pt-2">
-        <button onClick={() => setAttachOpen(true)} className="btn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-navy shadow-sm cursor-pointer">
-          <Plus size={20} />
-        </button>
-        <div className="flex flex-1 items-center rounded-full bg-white py-1 pl-4 pr-1 shadow-sm">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="Message…"
-            className="h-10 w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-sub/50"
-          />
+      {isConnected ? (
+        <div className="z-20 flex items-end gap-2 bg-page px-3 pb-6 pt-2">
+          <button onClick={() => setAttachOpen(true)} className="btn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-navy shadow-sm cursor-pointer">
+            <Plus size={20} />
+          </button>
+          <div className="flex flex-1 items-center rounded-full bg-white py-1 pl-4 pr-1 shadow-sm">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && send()}
+              placeholder="Message…"
+              className="h-10 w-full bg-transparent text-[14px] text-ink outline-none placeholder:text-sub/50"
+            />
+          </div>
+          <motion.button
+            whileTap={{ scale: 0.88 }}
+            onClick={send}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-lg transition-colors cursor-pointer ${text.trim() ? "bg-navy text-white" : "bg-white text-sub/50"}`}
+          >
+            <Send size={18} className={text.trim() ? "translate-x-[1px]" : ""} />
+          </motion.button>
         </div>
-        <motion.button
-          whileTap={{ scale: 0.88 }}
-          onClick={send}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-lg transition-colors cursor-pointer ${text.trim() ? "bg-navy text-white" : "bg-white text-sub/50"}`}
-        >
-          <Send size={18} className={text.trim() ? "translate-x-[1px]" : ""} />
-        </motion.button>
-      </div>
+      ) : (
+        <div className="z-20 border-t border-line bg-white/95 px-4 py-4 backdrop-blur-xl text-center">
+          <div className="flex items-center justify-center gap-2 text-[13px] font-semibold text-sub">
+            <Lock size={15} className="text-gold-600" />
+            <span>Messaging is restricted to connected members only.</span>
+          </div>
+          <p className="mt-1 text-[11.5px] text-sub/70">
+            Connect with this member first to send messages.
+          </p>
+          <div className="mt-3 flex justify-center">
+            <ConnectButton
+              state={conn[chat.userId] ?? "none"}
+              onConnect={() => requestConnect(chat.userId)}
+              onAccept={() => acceptConn(chat.userId)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* attachment sheet */}
       <Sheet open={attachOpen} onClose={() => setAttachOpen(false)} title="Share Media">

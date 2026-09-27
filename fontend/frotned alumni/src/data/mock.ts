@@ -105,15 +105,15 @@ export interface Notif {
 export const people: Person[] = [];
 
 export const meAlumni: Person = {
-  id: "me",
-  name: "JECRC Member",
+  id: "",
+  name: "",
   role: "alumni",
-  headline: "JECRC Network Member",
-  branch: "CSE",
-  batch: "2024",
-  city: "Jaipur",
+  headline: "",
+  branch: "",
+  batch: "",
+  city: "",
   color: "#0F2A5E",
-  about: "Verified member of JECRC Foundation network.",
+  about: "",
 };
 
 export const jobs: Job[] = [];

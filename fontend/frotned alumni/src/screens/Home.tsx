@@ -16,13 +16,17 @@ const item = {
 
 function HomeHeader() {
   const { me, unreadNotifs, goTab, role } = useStore();
+  const subline = role === "alumni"
+    ? (me.batch ? `Alumni · Batch ${me.batch}` : "Alumni Network Member")
+    : (me.batch ? `Student · ${me.branch ? `${me.branch} · ` : ""}'${me.batch.slice(-2)}` : (me.branch ? `Student · ${me.branch}` : "Student Member"));
+
   return (
     <div className="flex items-center justify-between">
       <button className="btn-press flex items-center gap-3 cursor-pointer" onClick={() => goTab("profile")}>
         <InitialsAvatar name={me.name || "Member"} size={42} />
         <div className="text-left">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sub/70">
-            {role === "alumni" ? `Alumni · Batch ${me.batch || "2020"}` : `Student · ${me.branch || "CSE"} '${(me.batch || "2027").slice(-2)}`}
+            {subline}
           </p>
           <p className="font-display text-[17px] font-semibold text-ink">{(me.name || "Member").split(" ")[0]}</p>
         </div>
@@ -264,7 +268,7 @@ function StudentHome() {
 
 /* =============== ALUMNI HOME =============== */
 function AlumniHome() {
-  const { push, goTab, received, acceptConn, rejectConn, mentorOptIn, unreadNotifs } = useStore();
+  const { push, goTab, received, acceptConn, rejectConn, mentorOptIn } = useStore();
   return (
     <>
       <HeroBanner />
@@ -339,21 +343,6 @@ function AlumniHome() {
       </motion.div>
 
       <QuickGrid />
-      <motion.div variants={item} className="mt-6">
-        <SectionHeader title="Your impact this week" />
-        <div className="grid grid-cols-3 gap-2.5">
-          {[
-            { v: "214", l: "Profile views", tint: "text-navy" },
-            { v: "12", l: "Referrals made", tint: "text-gold-600" },
-            { v: unreadNotifs.toString(), l: "New updates", tint: "text-mint" },
-          ].map((s) => (
-            <div key={s.l} className="card p-3 text-center min-w-0">
-              <p className={`font-display text-[20px] font-bold ${s.tint}`}>{s.v}</p>
-              <p className="mt-0.5 text-[10.5px] font-semibold text-sub truncate">{s.l}</p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
     </>
   );
 }
@@ -395,7 +384,7 @@ export default function HomeScreen() {
           <AlumniHome />
         )}
         <motion.p variants={item} className="mt-8 text-center text-[11px] font-medium tracking-wide text-sub/50">
-          JECRC Foundation network · {allGroups.length} groups · 46 mentors · {categories.length - 1} topics
+          JECRC Foundation Network · Official Alumni Community
         </motion.p>
       </motion.div>
     </Refreshable>

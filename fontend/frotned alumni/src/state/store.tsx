@@ -211,18 +211,24 @@ const saveDeletedMsgId = (msgId: string) => {
   } catch (e) {}
 };
 
+const emptyPerson: Person = {
+  id: "",
+  name: "",
+  email: "",
+  role: "alumni",
+  headline: "",
+  branch: "",
+  batch: "",
+  city: "",
+  color: "#0F2A5E",
+  about: "",
+};
+
 const getMyCurrentId = (meObj?: Person): string => {
   const tokenUserId = api.getUserIdFromToken();
   if (tokenUserId) return tokenUserId;
   if (meObj?.id && meObj.id !== "me") return meObj.id;
-  try {
-    const raw = localStorage.getItem("user_me_profile_latest");
-    if (raw) {
-      const p = JSON.parse(raw);
-      if (p?.id && p.id !== "me") return p.id;
-    }
-  } catch (e) {}
-  return meObj?.id || "me";
+  return meObj?.id || "";
 };
 
 const getSavedJobs = (): Job[] => {
@@ -239,7 +245,8 @@ const getSavedJobs = (): Job[] => {
 const getSavedChats = (): Chat[] => {
   try {
     const myId = getMyCurrentId();
-    const raw = localStorage.getItem(`jecrc_user_chats_${myId}`) || localStorage.getItem("jecrc_user_chats_default");
+    if (!myId) return [];
+    const raw = localStorage.getItem(`jecrc_user_chats_${myId}`);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed;
@@ -249,22 +256,7 @@ const getSavedChats = (): Chat[] => {
 };
 
 const getSavedMeProfile = (): Person => {
-  try {
-    const raw = localStorage.getItem("user_me_profile_latest");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.name) {
-        return {
-          ...parsed,
-          name: capitalizeName(parsed.name),
-        };
-      }
-    }
-  } catch (e) {}
-  return {
-    ...meAlumni,
-    name: capitalizeName(meAlumni.name),
-  };
+  return emptyPerson;
 };
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -280,15 +272,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         name: capitalizeName(next.name),
       };
       registerDynamicUser(formatted);
-      try {
-        if (formatted.id && formatted.id !== "me") {
-          localStorage.setItem(`user_me_profile_${formatted.id}`, JSON.stringify(formatted));
-          if (formatted.email) {
-            localStorage.setItem(`user_me_profile_by_email_${formatted.email.toLowerCase()}`, JSON.stringify(formatted));
-          }
-        }
-        localStorage.setItem("user_me_profile_latest", JSON.stringify(formatted));
-      } catch (e) {}
       return formatted;
     });
   }, []);
@@ -626,34 +609,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const uRole = (u.role?.toLowerCase() as Role) || "alumni";
           const uBranch = u.alumniDetails?.branch || u.studentDetails?.branch || "CSE";
           const uBatch = u.alumniDetails?.batch || (u.studentDetails?.expectedPassoutYear ? String(u.studentDetails.expectedPassoutYear) : (uRole === "alumni" ? "2020" : "2027"));
-
-          let savedLocal: Partial<Person> = {};
-          try {
-            const rawCache = localStorage.getItem(`user_me_profile_${u.id}`) || localStorage.getItem("user_me_profile_latest");
-            if (rawCache) savedLocal = JSON.parse(rawCache);
-          } catch (e) {}
-
-          const backendHeadline = u.alumniDetails?.designation
-            ? `${u.alumniDetails.designation}${u.alumniDetails.currentCompany ? ` @ ${u.alumniDetails.currentCompany}` : ""}`
-            : (uRole === "alumni" ? `Alumni · Batch ${uBatch}` : `Student · Class of ${uBatch}`);
+          const uCompany = u.alumniDetails?.currentCompany || "";
+          const designation = u.alumniDetails?.designation || "";
+          const backendHeadline = designation
+            ? `${designation}${uCompany ? ` @ ${uCompany}` : ""}`
+            : (uRole === "alumni" ? (uBatch ? `Alumni · Batch ${uBatch}` : "JECRC Alumnus") : (uBatch ? `Student · Class of ${uBatch}` : "JECRC Student"));
 
           setRole(uRole);
           const mappedMe: Person = {
             id: u.id,
-            name: capitalizeName(savedLocal.name || u.name),
+            name: capitalizeName(u.name || "Member"),
+            email: u.email || "",
             role: uRole,
-            branch: savedLocal.branch || uBranch,
-            batch: savedLocal.batch || uBatch,
-            company: savedLocal.company !== undefined ? savedLocal.company : (u.alumniDetails?.currentCompany || ""),
-            city: savedLocal.city || u.city || "Jaipur",
-            about: savedLocal.about || u.bio || "JECRC Alumni Network Member",
+            branch: uBranch,
+            batch: uBatch,
+            company: uCompany,
+            city: u.city || "",
+            about: u.bio || "",
             color: uRole === "alumni" ? "#0F2A5E" : "#2563EB",
-            headline: savedLocal.headline || backendHeadline,
+            headline: backendHeadline,
           };
           setMe(mappedMe);
           registerDynamicUser(mappedMe);
           setPhase("app");
+        } else {
+          // Token is invalid or expired
+          api.logoutBackend();
+          setPhase("auth");
         }
+      }).catch(() => {
+        // Network timeout / cold start
       });
       syncConnections();
       syncJobs();
@@ -1228,6 +1213,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async (chatId: string, msg: Omit<ChatMsg, "id" | "time" | "status">) => {
       const existingChat = chatsRef.current.find((c) => c.id === chatId || c.userId === chatId);
       const peerUserId = existingChat ? existingChat.userId : (chatId.startsWith("c_") ? chatId.slice(2) : chatId);
+
+      // Strict enforcement: Only connected members can message each other
+      if (conn[peerUserId] !== "connected") {
+        toast("First connect with profile's user to start chatting.");
+        return;
+      }
+
       const effectiveChatId = existingChat ? existingChat.id : `c_${peerUserId}`;
       const tempId = `m_${Date.now()}`;
       const timeStr = nowTime();
@@ -1335,7 +1327,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } catch (_e) {
       }
     },
-    [sendStopTyping]
+    [sendStopTyping, conn, toast]
   );
 
   const deleteMessage = useCallback(
@@ -1700,12 +1692,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ...(data.about !== undefined && { about: data.about }),
         };
         registerDynamicUser(updated);
-        try {
-          if (updated.id) {
-            localStorage.setItem(`user_me_profile_${updated.id}`, JSON.stringify(updated));
-            localStorage.setItem("user_me_profile_latest", JSON.stringify(updated));
-          }
-        } catch (e) {}
         return updated;
       });
 
@@ -1729,6 +1715,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     disconnectSocket();
     api.logoutBackend();
+    try {
+      localStorage.removeItem("user_me_profile_latest");
+      sessionStorage.clear();
+    } catch (e) {}
+    setMeState(emptyPerson);
+    setConn({});
+    setReceived([]);
+    setSent([]);
+    setChats([]);
     clearStack();
     setTab("home");
     setPhase("auth");
@@ -1740,6 +1735,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       await api.deleteAccount();
     } catch (e) {}
     api.logoutBackend();
+    try {
+      localStorage.removeItem("user_me_profile_latest");
+      sessionStorage.clear();
+    } catch (e) {}
+    setMeState(emptyPerson);
+    setConn({});
+    setReceived([]);
+    setSent([]);
+    setChats([]);
     clearStack();
     setTab("home");
     setPhase("splash");

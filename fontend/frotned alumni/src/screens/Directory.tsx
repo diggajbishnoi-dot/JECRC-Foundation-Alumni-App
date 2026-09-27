@@ -87,21 +87,10 @@ export function DirectoryScreen() {
         });
       }
 
-      // Merge backend items with verified institutional mock people
-      const combined = [...backendList];
-      const localFiltered = filterMockPeople(people, debounced, filters);
-      localFiltered.forEach((p) => {
-        if (!combined.some((b) => b.id === p.id || (b.name.toLowerCase() === p.name.toLowerCase() && b.branch === p.branch))) {
-          combined.push(p);
-          registerDynamicUser(p);
-        }
-      });
-
-      setBackendUsers(combined);
+      setBackendUsers(backendList);
     }).catch(() => {
       setLoading(false);
-      const localFiltered = filterMockPeople(people, debounced, filters);
-      setBackendUsers(localFiltered);
+      setBackendUsers([]);
     });
   }, [debounced, filters]);
 
@@ -640,23 +629,29 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                 ) : (
                   <>
                     {unlocked ? (
-                      <Btn
-                        variant="primary"
-                        className="h-11 flex-1 !text-[14px] cursor-pointer"
-                        onClick={() => {
-                          unlockChat(p.id);
-                          goTab("chat");
-                          push({ name: "chatRoom", id: `c_${p.id}` });
-                        }}
-                      >
-                        <MessageCircle size={15} /> Message
-                      </Btn>
+                      <>
+                        <Btn
+                          variant="primary"
+                          className="h-11 flex-1 !text-[14px] cursor-pointer"
+                          onClick={() => {
+                            if (state !== "connected") {
+                              toast("First connect with profile's user to start chatting.");
+                              return;
+                            }
+                            unlockChat(p.id);
+                            goTab("chat");
+                            push({ name: "chatRoom", id: `c_${p.id}` });
+                          }}
+                        >
+                          <MessageCircle size={15} /> Message
+                        </Btn>
+                        <ConnectButton state={state} onConnect={() => requestConnect(p.id)} />
+                      </>
                     ) : (
-                      <div className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed border-line bg-page text-[12.5px] font-semibold text-sub">
-                        <Lock size={13} className="text-gold-600" /> Connect first to chat
+                      <div className="flex-1">
+                        <ConnectButton state={state} onConnect={() => requestConnect(p.id)} />
                       </div>
                     )}
-                    <ConnectButton state={state} onConnect={() => requestConnect(p.id)} />
                     {!isMe && p.mentor && role === "student" && (
                       <motion.button
                         whileTap={{ scale: 0.95 }}
@@ -750,8 +745,10 @@ export function ProfileScreen({ id, embedded }: { id?: string; embedded?: boolea
                       </p>
                     </div>
                     <div className="rounded-xl bg-page p-3 border border-line/40">
-                      <p className="text-[11px] font-semibold text-sub">Response time</p>
-                      <p className="mt-1 text-[13px] font-bold text-ink">~2 hours</p>
+                      <p className="text-[11px] font-semibold text-sub">Network</p>
+                      <p className="mt-1 text-[13px] font-bold text-ink">
+                        {isMe ? `${Object.values(conn).filter((s) => s === "connected").length} Connections` : (state === "connected" ? "Connected" : "Network Member")}
+                      </p>
                     </div>
                   </div>
                 </div>
